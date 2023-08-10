@@ -1,1 +1,1 @@
-# STARCAT: STAR Cluster Analysis Toolkit
+# 😺STARCAT: STAR Cluster Analysis Toolkit
