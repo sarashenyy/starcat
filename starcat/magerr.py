@@ -1,7 +1,7 @@
 import os
-import warnings
 
 import numpy as np
+import pandas as pd
 
 from .bspline import Edr3LogMagUncertainty
 
@@ -10,20 +10,30 @@ spline_csv = os.path.join(module_dir, 'data', 'LogErrVsMagSpline.csv')
 
 
 class MagError(Edr3LogMagUncertainty):
-    """gaia Mag [G, BP, RP] -> Mag_err [G_err, BP_err, RP_err].
-    return median uncertainty for a sample which n_obs obeys poisson distribution (hypothesis)
+    """
+    Gaia Mag [G, BP, RP] -> Mag_err [G_err, BP_err, RP_err].
+    Return median uncertainty for a sample which n_obs obeys poisson distribution (hypothesis)
 
-    method1: using Edr3LogMagUncertainty
-    method2: using observation mag_magerr relation (corrected Nobs effect)
+    method1 : using Edr3LogMagUncertainty
+    method2 : using observation mag_magerr relation (corrected Nobs effect)
 
     Attributes
     ----------
-    bands: list
-        name of the band columns of the synthetic sample.
-
+    bands : list[str]
+        Photometric band columns of the synthetic sample.
+    spline_g, spline_bp, spline_rp
+        Bspline function of each band.
+    med_nobs : list[int]
+        Median observation number of each band.
     """
 
-    def __init__(self, sample_obs=None, med_nobs=None, spline_param=None, bands=None, nobs=None):
+    def __init__(
+            self,
+            sample_obs: pd.DataFrame = None,
+            med_nobs: list[int] = None,
+            spline_param: str = None,
+            bands: list[str] = None,
+            nobs: list[str] = None) -> None:
         if spline_param is None:
             spline_param = spline_csv
         super(MagError, self).__init__(spline_param)
@@ -45,8 +55,15 @@ class MagError(Edr3LogMagUncertainty):
                 raise ValueError('please enter med_nobs OR sample_obs')
 
     @staticmethod
-    def extract_med_nobs(sample_obs, nobs=None):
-        """extract the median value of n_obs(number of observation)"""
+    def extract_med_nobs(sample_obs: pd.DataFrame, nobs: list[str] = None) -> list[int]:
+        """
+        Extract the median value of n_obs(number of observation).
+
+        Returns
+        -------
+        med_nobs : list[int]
+            Three median observation number of each band (Gband, BPband, RPband).
+        """
         if nobs is None:
             nobs = ['phot_g_n_obs', 'phot_bp_n_obs', 'phot_rp_n_obs']
         med_nobs = []
@@ -55,29 +72,37 @@ class MagError(Edr3LogMagUncertainty):
             med_nobs.append(med)
         return med_nobs
 
-    def random_n_obs(self, n_stars):
-        """generate n_obs(number of observation) which obeys poisson(miu=med_nobs)"""
+    def random_n_obs(self, n_stars: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Generate n_obs(number of observation) which obeys poisson(miu=med_nobs).
+
+        Returns
+        -------
+        g_n_obs, bp_n_obs, rp_n_obs : tuple[np.ndarray, np.ndarray, np.ndarray]
+            Synthetic observation number of each synthetic star.
+        """
         g_n_obs = np.random.poisson(self.med_nobs[0], n_stars)
         bp_n_obs = np.random.poisson(self.med_nobs[1], n_stars)
         rp_n_obs = np.random.poisson(self.med_nobs[2], n_stars)
         return g_n_obs, bp_n_obs, rp_n_obs
 
-    def estimate_med_photoerr(self, sample_syn):
+    def estimate_med_photoerr(self, sample_syn: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Estimate the photometric error.
+        Estimate the photometric error (standard error) using bspline provided by Gaia.
 
         Parameters
         ----------
-        sample_syn:
+        sample_syn : pd.DataFrame
+            Synthetic stars without photometric error.
 
         Returns
         -------
-        g_med_err, bp_med_err, rp_med_err: ndarray
-            Return statistic value (standard error) of the error distribution,
-            considering observation number of each synthetic star.
+        g_med_err, bp_med_err, rp_med_err : tuple[np.ndarray, np.ndarray, np.ndarray]
+            Standard error of the photometric error distribution, considering observation number of each synthetic star.
         """
         # step 1 : generate synthetic n_obs for each band
         n_stars = len(sample_syn)
+        # noinspection PyTypeChecker
         g_n_obs, bp_n_obs, rp_n_obs = self.random_n_obs(n_stars)
         # step 2 : calculate mag_err when Nobs = 200(for G) / 20(for BP,RP)
         # g_med_err = np.sqrt(
@@ -133,8 +158,16 @@ class MagError(Edr3LogMagUncertainty):
         )
         return g_med_err, bp_med_err, rp_med_err
 
-    def syn_sample_photoerr(self, sample_syn):
-        # return synthetic band mag (with statistic error) which obey with N(band,band_med_err)
+    def syn_sample_photoerr(self, sample_syn: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Add synthetic photometric error to synthetic stars.
+        Return synthetic band mag (with statistic error) which obey with N(band,band_med_err).
+
+        Returns
+        -------
+        g_syn, bp_syn, rp_syn : tuple[np.ndarray, np.ndarray, np.ndarray]
+            Synthetic magnitude with photometic error of each band.
+        """
         n_stars = len(sample_syn)
         normal_sample = np.random.normal(size=n_stars)
         g_med_err, bp_med_err, rp_med_err = self.estimate_med_photoerr(sample_syn)
