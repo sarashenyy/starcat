@@ -1,0 +1,25 @@
+# data directory path, including isochrone path...
+# stored on the server dandelion
+data_dir = "/home/shenyueyue/Projects/starcat/data/"
+
+[parsec.gaiaDR2]
+    isoc_dir = "parsec/gaiaDR2/"
+    bands = ["Gmag", "G_BPmag", "G_RPmag"]
+    mini = "Mini"
+    mag_max = 18
+    # label_range <==> phase_range
+    label = [0, 1, 2, 3, 4, 5, 6, 7]
+    phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
+
+#[parsec.csst]
+#
+#[mist.gaiadr3]
+#
+#col_mass = "mist_csst_mass"
+#col_mags = ["mag1", "mag2"]
+#
+#[mist.csst]
+#col_mass = "mist_csst_mass"
+#col_mags = ["mag1", "mag2"]
+
+
