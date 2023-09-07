@@ -92,7 +92,7 @@ class MagError(Edr3LogMagUncertainty):
 
         Parameters
         ----------
-        sample_syn : pd.DataFrame
+        sample_syn : pd.DataFrame, cotaining [bands] cols
             Synthetic stars without photometric error.
 
         Returns
@@ -158,7 +158,7 @@ class MagError(Edr3LogMagUncertainty):
         )
         return g_med_err, bp_med_err, rp_med_err
 
-    def syn_sample_photoerr(self, sample_syn: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def __call__(self, sample_syn: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Add synthetic photometric error to synthetic stars.
         Return synthetic band mag (with statistic error) which obey with N(band,band_med_err).
