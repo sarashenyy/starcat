@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -9,7 +9,7 @@ with open('requirements.txt') as f:
 setup(
     name='starcat',
     version='0.0.0',
-    packages=['starcat'],
+    packages=find_packages(),
     url='https://github.com/sarashenyy/starcat',
     license='MIT',
     author='Yueyue Shen',
