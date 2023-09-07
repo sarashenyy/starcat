@@ -5,15 +5,7 @@ import numpy as np
 from berliner import CMD
 
 from .widgets import round_to_step
-
-import toml
-
-# load config file
-module_dir = os.path.dirname(__file__)
-config_file = os.path.join(module_dir, 'data', 'config.toml')
-config = toml.load(config_file)
-# load data_dir
-data_dir = config["data_dir"]
+from . import config
 
 
 class Model(ABC):
@@ -73,13 +65,13 @@ class Parsec(Model):
         # TODO: dm 用于确定最小质量 mass_min, 是否需要更改确定最小质量(最大光度)的方式？
         # dm = kwargs.get("dm")
         # mag_max = source["mag_max"]
-        source = config[self.model][photsyn]
+        source = config.config[self.model][photsyn]
         bands = source["bands"]
         mini = source["mini"]
         label = source["label"]
         phase = source["phase"]
         isoc_dir = source["isoc_dir"]
-        isoc_path = data_dir + isoc_dir + f"age{logage:+.2f}_mh{mh:+.2f}.joblib"
+        isoc_path = config.data_dir + isoc_dir + f"age{logage:+.2f}_mh{mh:+.2f}.joblib"
 
         if os.path.exists(isoc_path):
             isochrone = joblib.load(isoc_path)
