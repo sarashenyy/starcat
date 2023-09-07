@@ -1,6 +1,5 @@
 from .isoc import Isoc, Parsec, MIST
 from .magerr import MagError
-# from .synstars import SynStars
+from .imf import IMF
 
 from .bonus import meow
-from . import config
