@@ -1,7 +1,6 @@
+import numpy as np
 from matplotlib import pyplot as plt
 from scipy import integrate
-
-import numpy as np
 
 
 class IMF(object):
@@ -29,13 +28,13 @@ class IMF(object):
         plt.title('Initial Mass Function (IMF)')
         plt.show()
 
-    def sample(self, n, mass_min, mass_max):
+    def sample(self, n_stars, mass_min, mass_max):
         """
         Generate n stars which mass distribution obey with imf.
 
         Parameters
         ----------
-        n : int
+        n_stars : int
             n stars
         mass_min : float
         mass_max : float
@@ -46,9 +45,9 @@ class IMF(object):
         """
         mass = []
         c = self.pdf_imf(mass_min, mass_min, mass_max)
-        while len(mass) < n:
+        while len(mass) < n_stars:
             m_x = np.random.uniform(low=mass_min, high=mass_max, size=n)
             m_y = np.random.uniform(0, 1, size=n)
             mask = m_y < self.pdf_imf(m_x, mass_min, mass_max) / c
             mass.extend(m_x[mask])
-        return mass[:n]
+        return mass[:n_stars]
