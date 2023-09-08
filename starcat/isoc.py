@@ -10,7 +10,7 @@ from . import config
 from .widgets import round_to_step
 
 
-class Model(ABC):
+class IsocModel(ABC):
     """
     An abstract base class for isochrone model that defines the interface for its subclass.
     """
@@ -51,7 +51,7 @@ class Model(ABC):
         pass
 
 
-class Parsec(Model):
+class Parsec(IsocModel):
     """
     subclass for abstract base class Model()
     """
@@ -78,9 +78,7 @@ class Parsec(Model):
         """
         logage = round_to_step(kwargs.get('logage'), step=kwargs.get('logage_step'))
         mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
-        # TODO: dm 用于确定最小质量 mass_min, 是否需要更改确定最小质量(最大光度)的方式？
-        # dm = kwargs.get("dm")
-        # mag_max = source["mag_max"]
+
         source = config.config[self.model][photsyn]
         bands = source['bands']
         mini = source['mini']
@@ -104,9 +102,6 @@ class Parsec(Model):
             for i, element in enumerate(label):
                 index = np.where(isochrone['label'] == element)[0]
                 isochrone.loc[index, 'phase'] = phase[i]
-        # TODO: 将以下两行定义质量范围的代码和上述一行定义dm的代码移出Isoc类之外
-        # mass_min = min(isochrone[(isochrone[bands[0]] + dm) <= mag_max][mini])
-        # mass_max = max(isochrone[mini])
 
         # save isochrone file
         if not os.path.exists(isoc_path):
@@ -146,7 +141,7 @@ class Parsec(Model):
         )
 
 
-class MIST(Model):
+class MIST(IsocModel):
     """
     subclass for abstract base class Model()
     """
