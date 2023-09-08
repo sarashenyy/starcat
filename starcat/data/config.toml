@@ -5,6 +5,7 @@ data_dir = "/home/shenyueyue/Projects/starcat/data/"
 [parsec.gaiaDR2]
 isoc_dir = "isochrones/parsec/gaiaDR2/"
 bands = ["Gmag", "G_BPmag", "G_RPmag"]
+mag = ['Gmag']
 mini = "Mini"
 mag_max = 18
 # label_range <==> phase_range
@@ -13,12 +14,13 @@ phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 [parsec.gaiaEDR3]
 isoc_dir = "isochrones/parsec/gaiaEDR3/"
-    bands = ["Gmag", "G_BPmag", "G_RPmag"]
-    mini = "Mini"
-    mag_max = 18
-    # label_range <==> phase_range
-    label = [0, 1, 2, 3, 4, 5, 6, 7]
-    phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
+bands = ["Gmag", "G_BPmag", "G_RPmag"]
+mag = ['Gmag']
+mini = "Mini"
+mag_max = 18
+# label_range <==> phase_range
+label = [0, 1, 2, 3, 4, 5, 6, 7]
+phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 #[parsec.csst]
 #
