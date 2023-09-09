@@ -61,7 +61,7 @@ class GaiaEDR3(Photerr):
 class SynStars(object):
     imf: IMF
 
-    def __init__(self, model, photsyn, imf, n_stars):
+    def __init__(self, model, photsyn, imf, n_stars, binmethod, photerr):
         """
         Synthetic cluster samples.
 
@@ -73,11 +73,17 @@ class SynStars(object):
             'gaiaDR2' or 'daiaEDR3'
         imf : starcat.IMF
         n_stars : int
+        binmethod :
+            subclass of starcat.BinMethod: BinMS(), BinSimple()
+        photerr :
+            subclass of starcat.Photerr: GaiaEDR3()
         """
         self.imf = imf
         self.n_stars = n_stars
         self.model = model
         self.photsyn = photsyn
+        self.binmethod = binmethod
+        self.photerr = photerr
 
         source = config.config[self.model][self.photsyn]
         self.bands = source['bands']
@@ -86,7 +92,7 @@ class SynStars(object):
         self.mini = source['Mini']
         self.mag = source['mag']
 
-    def __call__(self, theta, step, variable_type_isoc, binmethod, photerr, *args, **kwargs):
+    def __call__(self, theta, step, variable_type_isoc, *args, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -100,10 +106,6 @@ class SynStars(object):
             logage, mh, fb, dm
         step : tuple
             logage_step, mh_step
-        binmethod :
-            subclass of starcat.BinMethod: BinMS(), BinSimple()
-        photerr :
-            subclass of starcat.Photerr: GaiaEDR3()
         isoc :
             starcat.Isoc() or pd.DataFRame, optional
             - starcat.Isoc() : Isoc(Parsec()), Isoc(MIST()). Default is None.
@@ -124,14 +126,14 @@ class SynStars(object):
 
         # step 2: sample isochrone with specified Binary Method
         #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-        sample_syn = self.sample_stars(isoc, fb, dm, binmethod)
+        sample_syn = self.sample_stars(isoc, fb, dm)
 
         # step 3: add distance module
         for _ in self.bands:
             sample_syn[_ + '_syn'] += dm
 
         # step 4: add photometry error for synthetic sample
-        sample_syn = photerr.add_syn_photerr(sample_syn)
+        sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
         return sample_syn
 
@@ -149,7 +151,7 @@ class SynStars(object):
         mass_max = max(isoc[self.mini])
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, fb, dm, binmethod):
+    def sample_stars(self, isoc, fb, dm):
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -158,8 +160,6 @@ class SynStars(object):
         isoc : pd.DataFrame
         fb : float
         dm : float
-        binmethod :
-            subclass of starcat.BinMethod
 
         Returns
         -------
@@ -173,7 +173,7 @@ class SynStars(object):
         sample_syn['mass_pri'] = self.imf.sample(n_stars=self.n_stars, mass_min=mass_min, mass_max=mass_max)
 
         # using specified binary method, see detail in binary.py
-        sample_syn = binmethod.add_binary(
+        sample_syn = self.binmethod.add_binary(
             fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsyn, dm
         )
         return sample_syn
