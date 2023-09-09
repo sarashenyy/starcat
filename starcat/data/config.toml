@@ -1,22 +1,26 @@
 # data directory path, including isochrone path...
 # stored on the server dandelion
-data_dir = "/home/shenyueyue/Projects/starcat/data/"
+data_dir = '/home/shenyueyue/Projects/starcat/data/'
 
 [parsec.gaiaDR2]
-isoc_dir = "isochrones/parsec/gaiaDR2/"
-bands = ["Gmag", "G_BPmag", "G_RPmag"]
-mag = ['Gmag']
-mini = "Mini"
+isoc_dir = 'isochrones/parsec/gaiaDR2/'
+bands = ['Gmag', 'G_BPmag', 'G_RPmag']
+# if there is more than one color and more than one mag,
+# change mag from str to list and be careful for the place where used it !!
+mag = 'Gmag'
+color = ['G_BPmag', 'G_RPmag']
+mini = 'Mini'
 mag_max = 18
 # label_range <==> phase_range
 label = [0, 1, 2, 3, 4, 5, 6, 7]
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 [parsec.gaiaEDR3]
-isoc_dir = "isochrones/parsec/gaiaEDR3/"
-bands = ["Gmag", "G_BPmag", "G_RPmag"]
-mag = ['Gmag']
-mini = "Mini"
+isoc_dir = 'isochrones/parsec/gaiaEDR3/'
+bands = ['Gmag', 'G_BPmag', 'G_RPmag']
+mag = 'Gmag'
+color = ['G_BPmag', 'G_RPmag']
+mini = 'Mini'
 mag_max = 18
 # label_range <==> phase_range
 label = [0, 1, 2, 3, 4, 5, 6, 7]
@@ -26,11 +30,11 @@ phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 #
 #[mist.gaiadr3]
 #
-#col_mass = "mist_csst_mass"
-#col_mags = ["mag1", "mag2"]
+#col_mass = 'mist_csst_mass'
+#col_mags = ['mag1', 'mag2']
 #
 #[mist.csst]
-#col_mass = "mist_csst_mass"
-#col_mags = ["mag1", "mag2"]
+#col_mass = 'mist_csst_mass'
+#col_mags = ['mag1', 'mag2']
 
 
