@@ -46,8 +46,8 @@ class IMF(object):
         mass = []
         c = self.pdf_imf(mass_min, mass_min, mass_max)
         while len(mass) < n_stars:
-            m_x = np.random.uniform(low=mass_min, high=mass_max, size=n)
-            m_y = np.random.uniform(0, 1, size=n)
+            m_x = np.random.uniform(low=mass_min, high=mass_max, size=n_stars)
+            m_y = np.random.uniform(0, 1, size=n_stars)
             mask = m_y < self.pdf_imf(m_x, mass_min, mass_max) / c
             mass.extend(m_x[mask])
         return mass[:n_stars]

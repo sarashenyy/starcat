@@ -5,6 +5,7 @@ import numpy as np
 from scipy.interpolate import interpolate
 
 from . import config
+from .widgets import log_time
 
 
 class BinMethod(ABC):
@@ -82,6 +83,7 @@ class BinSimple(BinMethod):
         return sample
 
 
+@log_time
 def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_min, masssec_max):
     """
     Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
@@ -101,7 +103,7 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
         'gaiaDR2' or 'gaiaEDR3'
     """
     source = config.config[model][photsyn]
-    mini = source['Mini']
+    mini = source['mini']
     bands = source['bands']
     phase = source['phase']
 
@@ -137,8 +139,8 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
             sample.loc[sample['mass_%s' % m] >= mass_cut, '%s_%s' % (band, m)] = (
                 mass_mag_2(sample[sample['mass_%s' % m] >= mass_cut]['mass_%s' % m]))
         # add syn mag (for binaries, syn = f(pri,sec) )
-        sample['%s_syn' % band] = sample['%s_pri' % band]
-        sample.loc[secindex, '%s_syn' % band] = (
+        sample[band] = sample['%s_pri' % band]
+        sample.loc[secindex, band] = (
                 -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % band])
                                 + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % band])
                                 )
@@ -148,7 +150,7 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
 
 def define_secmass_ms(isoc, model, photsyn):
     source = config.config[model][photsyn]
-    mini = source['Mini']
+    mini = source['mini']
     # Key Point! secondary stars are all Main Sequence stars
     masssec_min = min(isoc[isoc['phase'] == 'MS'][mini])
     masssec_max = max(isoc[isoc['phase'] == 'MS'][mini])
@@ -157,7 +159,7 @@ def define_secmass_ms(isoc, model, photsyn):
 
 def define_secmass_simple(isoc, dm, model, photsyn):
     source = config.config[model][photsyn]
-    mini = source['Mini']
+    mini = source['mini']
     mag = source['mag']
     mag_max = source['mag_max']
     masssec_min = min(

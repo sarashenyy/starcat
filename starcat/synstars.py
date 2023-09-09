@@ -46,14 +46,14 @@ class GaiaEDR3(Photerr):
         -------
         pd.DataFrame : [bands] x [_syn]
         """
-        e: MagError = MagError(med_nobs=self.med_nobs, bands=self.bands)
+        e = MagError(med_nobs=self.med_nobs, bands=self.bands)
         # g_med_err, bp_med_err, rp_med_err = e.estimate_med_photoerr(sample_syn=sample_syn)
         # sample_syn[self.bands[0] + '_err_syn'], sample_syn[self.bands[1] + '_err_syn'], sample_syn[
         #     self.bands[2] + '_err_syn'] = (
         #     g_med_err, bp_med_err, rp_med_err)
         g_syn, bp_syn, rp_syn = e(sample_syn=sample_syn)
-        sample_syn[self.bands[0] + '_syn'], sample_syn[self.bands[1] + '_syn'], sample_syn[
-            self.bands[2] + '_syn'] = (
+        sample_syn[self.bands[0]], sample_syn[self.bands[1]], sample_syn[
+            self.bands[2]] = (
             g_syn, bp_syn, rp_syn)
         return sample_syn
 
@@ -89,7 +89,7 @@ class SynStars(object):
         self.bands = source['bands']
         self.mag_max = source['mag_max']
         self.bands = source['bands']
-        self.mini = source['Mini']
+        self.mini = source['mini']
         self.mag = source['mag']
 
     def __call__(self, theta, step, variable_type_isoc, *args, **kwargs):
@@ -130,7 +130,7 @@ class SynStars(object):
 
         # step 3: add distance module
         for _ in self.bands:
-            sample_syn[_ + '_syn'] += dm
+            sample_syn[_] += dm
 
         # step 4: add photometry error for synthetic sample
         sample_syn = self.photerr.add_syn_photerr(sample_syn)

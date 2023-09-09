@@ -5,6 +5,7 @@ data_dir = '/home/shenyueyue/Projects/starcat/data/'
 [parsec.gaiaDR2]
 isoc_dir = 'isochrones/parsec/gaiaDR2/'
 bands = ['Gmag', 'G_BPmag', 'G_RPmag']
+#syn_bands = ['Gmag_syn', 'G_BPmag_syn', 'G_RPmag_syn']
 # if there is more than one color and more than one mag,
 # change mag from str to list and be careful for the place where used it !!
 mag = 'Gmag'
@@ -18,6 +19,7 @@ phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 [parsec.gaiaEDR3]
 isoc_dir = 'isochrones/parsec/gaiaEDR3/'
 bands = ['Gmag', 'G_BPmag', 'G_RPmag']
+#syn_bands = ['Gmag_syn', 'G_BPmag_syn', 'G_RPmag_syn']
 mag = 'Gmag'
 color = ['G_BPmag', 'G_RPmag']
 mini = 'Mini'
