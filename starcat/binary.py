@@ -5,7 +5,6 @@ import numpy as np
 from scipy.interpolate import interpolate
 
 from . import config
-from .widgets import log_time
 
 
 class BinMethod(ABC):
@@ -83,7 +82,6 @@ class BinSimple(BinMethod):
         return sample
 
 
-@log_time
 def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_min, masssec_max):
     """
     Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
