@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -16,16 +17,15 @@ class Hist2Hist(LikelihoodFunc):
     lnlike(H_{syn},H_{obs}) = -\frac{1}{2}\sum{\frac{(H_{obs}-H_{syn})^2}{H_{obs}+H_{syn}+1}}
     """
 
-    def __init__(self, model, photsys, c_bin: int, m_bin: int):
+    def __init__(self, model, photsys, bins: int):
         self.func = 'hist2hist'
         self.model = model
         self.photsys = photsys
-        self.c_bin = c_bin
-        self.m_bin = m_bin
+        self.bins = bins
 
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.c_bin, self.m_bin)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.c_bin, self.m_bin)
+        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.bins)
         n_syn = len(sample_syn)
         n_obs = len(sample_obs)
         h_syn = h_syn / (n_syn / n_obs)
@@ -39,16 +39,15 @@ class Hist2Point(LikelihoodFunc):
     log(likelihood) =\sum{n_{i}\ln{p_{i}}}
     """
 
-    def __init__(self, model, photsys, c_bin: int, m_bin: int):
+    def __init__(self, model, photsys, bins: int):
         self.func = 'hist2point'
         self.model = model
         self.photsys = photsys
-        self.c_bin = c_bin
-        self.m_bin = m_bin
+        self.bins = bins
 
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.c_bin, self.m_bin)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.c_bin, self.m_bin)
+        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.bins)
         epsilon = 1e-20
         h_syn = h_syn / np.sum(h_syn)
         h_syn = h_syn + epsilon
@@ -91,6 +90,7 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample
 
 
 def lnlike_4p(theta, step, isoc, likelihoodfunc, synstars, sample_obs):
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage, mh, fb, dm = theta
     if (logage > 10.0) or (logage < 6.6) or (mh < -0.9) or (mh > 0.7) or (fb < 0.05) or (fb > 1) or (dm < 2) or (
             dm > 20):
@@ -98,3 +98,12 @@ def lnlike_4p(theta, step, isoc, likelihoodfunc, synstars, sample_obs):
     sample_syn = synstars(theta, step, isoc)
     lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
     return lnlike
+    # import warnings
+    # warnings.filterwarnings("ignore", category=RuntimeWarning)
+    # try:
+    #     sample_syn = synstars(theta, step, isoc)
+    #     lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+    #     return lnlike
+    # except RuntimeWarning:
+    #     print(theta)
+    #     return -np.inf
