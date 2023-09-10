@@ -135,6 +135,9 @@ class SynStars(object):
         # step 4: add photometry error for synthetic sample
         sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
+        # step 5: discard nan values primarily due to failed interpolate
+        sample_syn = sample_syn.dropna(subset=['Gmag', 'G_BPmag', 'G_RPmag'], how='any').reset_index(drop=True)
+
         return sample_syn
 
     def define_mass(self, isoc, dm):
