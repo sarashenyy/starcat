@@ -47,6 +47,7 @@ class GaiaEDR3(Photerr):
         pd.DataFrame : [bands] x [_syn]
         """
         e = MagError(med_nobs=self.med_nobs, bands=self.bands)
+        # test when med_err is needed
         # g_med_err, bp_med_err, rp_med_err = e.estimate_med_photoerr(sample_syn=sample_syn)
         # sample_syn[self.bands[0] + '_err_syn'], sample_syn[self.bands[1] + '_err_syn'], sample_syn[
         #     self.bands[2] + '_err_syn'] = (
@@ -135,8 +136,12 @@ class SynStars(object):
         # step 4: add photometry error for synthetic sample
         sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
-        # step 5: discard nan values primarily due to failed interpolate
-        sample_syn = sample_syn.dropna(subset=['Gmag', 'G_BPmag', 'G_RPmag'], how='any').reset_index(drop=True)
+        # step 5: discard nan&inf values primarily due to failed interpolate
+        columns_to_check = self.bands
+        sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
+        for column in columns_to_check:
+            sample_syn = sample_syn[~np.isinf(sample_syn[column])]
+        sample_syn = sample_syn.reset_index(drop=True)
 
         return sample_syn
 
