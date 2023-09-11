@@ -30,6 +30,9 @@ class Hist2Hist(LikelihoodFunc):
         n_obs = len(sample_obs)
         h_syn = h_syn / (n_syn / n_obs)
         lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+        # !NOTE correction is max(lnlike) in param space
+        correction = -230
+        lnlike = lnlike - correction
         return lnlike
 
 
@@ -53,6 +56,9 @@ class Hist2Point(LikelihoodFunc):
         h_syn = h_syn + epsilon
         h_syn = h_syn / np.sum(h_syn)
         lnlike = np.sum(h_obs * np.log10(h_syn))
+        # !NOTE correction is max(lnlike) in param space
+        correction = -4100
+        lnlike = lnlike - correction
         return lnlike
 
 
