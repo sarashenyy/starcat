@@ -24,15 +24,15 @@ class Hist2Hist(LikelihoodFunc):
         self.bins = bins
 
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.bins)
+        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
         n_syn = len(sample_syn)
         n_obs = len(sample_obs)
         h_syn = h_syn / (n_syn / n_obs)
         lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
         # !NOTE correction is max(lnlike) in param space
-        correction = -230
-        lnlike = lnlike - correction - 180
+        # correction = -230
+        # lnlike = lnlike - correction - 180
         return lnlike
 
 
@@ -49,16 +49,16 @@ class Hist2Point(LikelihoodFunc):
         self.bins = bins
 
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, _, _ = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, self.bins)
+        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
         epsilon = 1e-20
         h_syn = h_syn / np.sum(h_syn)
         h_syn = h_syn + epsilon
         h_syn = h_syn / np.sum(h_syn)
         lnlike = np.sum(h_obs * np.log10(h_syn))
         # !NOTE correction is max(lnlike) in param space
-        correction = -4100
-        lnlike = lnlike - correction - 1960
+        # correction = -4100
+        # lnlike = lnlike - correction - 1960
         return lnlike
 
 

@@ -66,18 +66,27 @@ class CMD(object):
         return h, x_edges, y_edges
 
     @staticmethod
-    def extract_hist2d(sample, model, photsys, bins: int):
+    def extract_hist2d(sample, model, photsys, bins):
         """
         From sample extreact hist2d.
         """
         c, m = CMD.extract_cmd(sample, model, photsys)
-        h, x_edges, y_edges = CMD.hist2d(c, m, bins)
+        if isinstance(bins, int):
+            h, x_edges, y_edges = CMD.hist2d(c, m, bins)
+        # bins = (x_edges, y_edges)
+        elif isinstance(bins, tuple):
+            h, x_edges, y_edges = np.histogram2d(c, m, bins=bins)
         return h, x_edges, y_edges
 
     @staticmethod
-    def extract_hist2d_norm(sample, model, photsys, bins: int):
+    def extract_hist2d_norm(sample, model, photsys, bins):
         c, m = CMD.extract_cmd(sample, model, photsys)
-        h, x_edges, y_edges = CMD.hist2d_norm(c, m, bins)
+        if isinstance(bins, int):
+            h, x_edges, y_edges = CMD.hist2d_norm(c, m, bins)
+        # bins = (x_edges, y_edges)
+        elif isinstance(bins, tuple):
+            h, x_edges, y_edges = np.histogram2d(c, m, bins=bins)
+            h = h / np.sum(h)
         return h, x_edges, y_edges
 
     @staticmethod
@@ -89,3 +98,25 @@ class CMD(object):
         ax.set_xlabel('Color (mag)')
         ax.set_ylabel('Mag (mag)')
         fig.show()
+
+    @staticmethod
+    def plot_resid(sample_obs, sample_syn, model, photsys, bins: int):
+        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, model, photsys, bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, model, photsys, bins=(xe_obs, ye_obs))
+        residuals = h_obs / np.sum(h_obs) - h_syn / np.sum(h_syn)
+
+        # 绘制残差图
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(
+            residuals, cmap='bwr', origin='lower',
+            # extent=[xe_obs[0], xe_obs[-1], ye_obs[0], ye_obs[-1]],
+            aspect='equal'
+        )
+        cbar = fig.colorbar(im, ax=ax, label='Residuals')
+        ax.set_xlabel('Color')
+        ax.set_ylabel('Magnitude')
+        ax.set_title('Histogram2D Residuals')
+        ax.invert_yaxis()
+        fig.show()
+
+        return residuals, xe_obs, ye_obs
