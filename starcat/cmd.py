@@ -71,9 +71,10 @@ class CMD(object):
         From sample extreact hist2d.
         """
         c, m = CMD.extract_cmd(sample, model, photsys)
+        # bins: int for sample_obs
         if isinstance(bins, int):
             h, x_edges, y_edges = CMD.hist2d(c, m, bins)
-        # bins = (x_edges, y_edges)
+        # bins = (x_edges, y_edges) for cut sample_syn to sample_obs
         elif isinstance(bins, tuple):
             h, x_edges, y_edges = np.histogram2d(c, m, bins=bins)
         return h, x_edges, y_edges
