@@ -43,6 +43,7 @@ class IMF(object):
         -------
             list: A mass list of length n.
         """
+        np.random.seed(42)
         mass = []
         c = self.pdf_imf(mass_min, mass_min, mass_max)
         while len(mass) < n_stars:

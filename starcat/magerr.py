@@ -81,6 +81,7 @@ class MagError(Edr3LogMagUncertainty):
         g_n_obs, bp_n_obs, rp_n_obs : tuple[np.ndarray, np.ndarray, np.ndarray]
             Synthetic observation number of each synthetic star.
         """
+        np.random.seed(42)
         g_n_obs = np.random.poisson(self.med_nobs[0], n_stars)
         bp_n_obs = np.random.poisson(self.med_nobs[1], n_stars)
         rp_n_obs = np.random.poisson(self.med_nobs[2], n_stars)
@@ -169,6 +170,7 @@ class MagError(Edr3LogMagUncertainty):
             Synthetic magnitude with photometic error of each band.
         """
         n_stars = len(sample_syn)
+        np.random.seed(42)
         normal_sample = np.random.normal(size=n_stars)
         g_med_err, bp_med_err, rp_med_err = self.estimate_med_photoerr(sample_syn)
         # g_syn = (g_med_err/0.67) * normal_sample + sample_syn[self.bands[0]]

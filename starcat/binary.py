@@ -1,4 +1,3 @@
-import random
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -108,7 +107,9 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
     # add binaries
     # if mass_sec != NaN, then binaries
     n_binary = int(n_stars * fb)
-    secindex = random.sample(list(sample.index), k=n_binary)
+    # secindex = random.sample(list(sample.index), k=n_binary)
+    np.random.seed(42)
+    secindex = np.random.choice(list(sample.index), size=n_binary)
     sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
 
     # add mag for each band
