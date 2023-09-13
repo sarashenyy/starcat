@@ -1,28 +1,13 @@
-import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
 
-from starcat import (Parsec, Isoc, IMF, config,
-                     BinMS, BinSimple,
-                     GaiaEDR3, MagError,
-                     Hist2Point, SynStars
+from script.widgets import read_sample_obs
+from starcat import (Parsec, Isoc, IMF, BinMS, BinSimple,
+                     GaiaEDR3, Hist2Point, SynStars, cmd
                      )
 
-
-def read_sampel_obs(filename, photsys):
-    usecols = ['Gmag', 'BPmag', 'RPmag', 'phot_g_n_obs', 'phot_bp_n_obs', 'phot_rp_n_obs']
-    sample = pd.read_csv(
-        f'/home/shenyueyue/Projects/starcat/test_data/{filename}.csv',
-        usecols=usecols
-    )
-    sample = sample.dropna().reset_index(drop=True)
-    sample_temp = sample[['phot_g_n_obs', 'phot_bp_n_obs', 'phot_rp_n_obs']]
-    nobs = MagError.extract_med_nobs(sample_temp, usecols[3:6])
-    sample = sample[['Gmag', 'BPmag', 'RPmag']]
-    sample.columns = config.config['parsec'][photsys]['bands']
-    return sample, nobs
-
-
-sample_obs2, med_nobs2 = read_sampel_obs('melotte_22_dr2', 'gaiaDR2')
-sample_obs3, med_nobs3 = read_sampel_obs('melotte_22_edr3', 'gaiaEDR3')
+sample_obs2, med_nobs2 = read_sample_obs('melotte_22_dr2', 'gaiaDR2')
+sample_obs3, med_nobs3 = read_sample_obs('melotte_22_edr3', 'gaiaEDR3')
 
 theta = 7.89, 0.032, 0.35, 5.55
 step = 0.01, 0.01
@@ -47,3 +32,28 @@ synstars3_ms = SynStars('parsec', 'gaiaEDR3', imf, n_stars, binmethod_ms, photer
 sample_syn2 = synstars2(theta, step, isoc)
 sample_syn3 = synstars3(theta, step, isoc)
 sample_syn3_ms = synstars3_ms(theta, step, isoc)
+
+# hist2d的残差
+model = 'parsec'
+photsys = 'gaiaEDR3'
+sample_obs = sample_obs3
+sample_syn = sample_syn3
+
+c_obs, m_obs = cmd.CMD.extract_cmd(sample_obs, model, photsys)
+c_syn, m_syn = cmd.CMD.extract_cmd(sample_syn, model, photsys)
+obs = plt.hist2d(c_obs, m_obs, cmap='Blues')
+syn = plt.hist2d(c_syn, m_syn, cmap='Blues')
+
+# 计算obs和syn的差异
+residuals = obs[0] / np.sum(obs[0]) - syn[0] / np.sum(syn[0])
+
+# 绘制残差图
+fig, ax = plt.subplots(figsize=(8, 6))
+im = ax.imshow(residuals, cmap='bwr', origin='lower')
+cbar = fig.colorbar(im, ax=ax, label='Residuals')
+ax.set_xlabel('Color')
+ax.set_ylabel('Magnitude')
+ax.set_title('Histogram2D Residuals')
+ax.invert_yaxis()
+
+fig.show()
