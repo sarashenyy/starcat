@@ -82,6 +82,7 @@ class Parsec(IsocModel):
         source = config.config[self.model][photsyn]
         bands = source['bands']
         mini = source['mini']
+        mass = source['mass']
         label = source['label']
         phase = source['phase']
         isoc_dir = source['isoc_dir']
@@ -106,7 +107,7 @@ class Parsec(IsocModel):
         # save isochrone file
         if not os.path.exists(isoc_path):
             joblib.dump(isochrone, isoc_path)
-        useful_columns = ['phase', mini] + bands
+        useful_columns = ['phase', mini, mass] + bands
         isoc = isochrone[useful_columns]
         return isoc
 
