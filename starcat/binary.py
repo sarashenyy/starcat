@@ -1,3 +1,4 @@
+import random
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -38,9 +39,13 @@ class BinMS(BinMethod):
             'gaiaDR2' or 'gaiaEDR3'
         """
         masssec_min, masssec_max = define_secmass_ms(isoc=isoc, model=model, photsyn=photsyn)
-        sample = add_binary_wrapper(
-            fb=fb, n_stars=n_stars, sample=sample, isoc=isoc, imf=imf,
-            model=model, photsyn=photsyn, masssec_min=masssec_min, masssec_max=masssec_max
+        sample = add_secmass_simple(
+            fb=fb, n_stars=n_stars, sample=sample, imf=imf,
+            masssec_min=masssec_min, masssec_max=masssec_max
+        )
+        sample = add_companion_mag(
+            sample=sample, isoc=isoc,
+            model=model, photsyn=photsyn
         )
         return sample
 
@@ -74,25 +79,121 @@ class BinSimple(BinMethod):
         """
         dm = args
         masssec_min, masssec_max = define_secmass_simple(isoc=isoc, dm=dm, model=model, photsyn=photsyn)
-        sample = add_binary_wrapper(
-            fb=fb, n_stars=n_stars, sample=sample, isoc=isoc, imf=imf,
-            model=model, photsyn=photsyn, masssec_min=masssec_min, masssec_max=masssec_max
+        sample = add_secmass_simple(
+            fb=fb, n_stars=n_stars, sample=sample, imf=imf,
+            masssec_min=masssec_min, masssec_max=masssec_max
+        )
+        sample = add_companion_mag(
+            sample=sample, isoc=isoc,
+            model=model, photsyn=photsyn
         )
         return sample
 
 
-def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_min, masssec_max):
+class BinMRD(BinMethod):
+    """
+    add condition: q > 0.09/primass
+    sample secondary mass from distribution q^gamma(default gamma=0)
+    """
+
+    def __init__(self):
+        self.method = 'BinaryMRD'
+
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+        sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample)
+        sample = add_companion_mag(
+            sample=sample, isoc=isoc,
+            model=model, photsyn=photsyn
+        )
+        return sample
+
+
+def sample_q(qmin, qmax=None, gamma=0):
+    """
+    PDF: f(q) = q^gamma, a<q<b (a=0.09/mass_pri)
+    CDF: $F(q) = \int_a^q f(x) dx = \int_a^q x^\gamma dx = \frac{1}{\gamma+1} (q^{\gamma+1} - a^{\gamma+1})$
+    reverse CDF: u = F(q), q = F^(-1)(u)
+
+    Parameters
+    ----------
+    qmin : np.array
+        qmin = 0.09 / mass_pri
+    qmax : np.array
+        default is 1
+    gamma : float
+
+    Returns
+    -------
+    np.array
+    """
+    num = len(qmin)
+    if qmax is None:
+        qmax = np.ones(num)
+    u = np.random.random()
+    q = (
+                u * ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) / (gamma + 1)) +
+                qmin ** (gamma + 1)
+        ) ** (1 / (gamma + 1))
+    return q
+
+
+def add_secmass_MRD(fb, n_stars, sample):
+    """
+    Parameters
+    ----------
+    fb
+    n_stars
+    sample : pd.DataFrame
+        [mass_pri]
+
+    Returns
+    -------
+    pd.DataFrames : [mass_pri, mass_sec, q]
+    """
+    # randomly choose binaries
+    # if mass_sec != Nan, then binaries
+    n_binary = int(n_stars * fb)
+    # np.random.seed(42)
+    secindex = random.sample(list(sample.index), n_binary)
+    qs = sample_q(qmin=0.09 / np.array(sample.loc[secindex, 'mass_pri']))
+    sample.loc[secindex, 'q'] = qs
+    sample.loc[secindex, 'mass_sec'] = qs * np.array(sample.loc[secindex, 'mass_pri'])
+    return sample
+
+
+def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
+    """
+
+    Parameters
+    ----------
+    fb
+    n_stars
+    sample : pd.DataFrame
+        [mass_pri]
+    imf
+    masssec_min
+    masssec_max
+
+    Returns
+    -------
+    pd.DataFrames : [mass_pri, mass_sec]
+    """
+    # randomly choose binaries
+    # if mass_sec != Nan, then binaries
+    n_binary = int(n_stars * fb)
+    # np.random.seed(42)
+    secindex = random.sample(list(sample.index), n_binary)
+    sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
+    return sample
+
+
+def add_companion_mag(sample, isoc, model, photsyn):
     """
     Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
 
     Parameters
     ----------
-    masssec_max : float
-    masssec_min : float
     isoc : pd.DataFrame
-    imf : starcat.IMF
-    fb : float
-    n_stars : int
     sample : pd.DataFrame
     model : str
         'parsec' or 'MIST'
@@ -104,20 +205,22 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
     bands = source['bands']
     phase = source['phase']
 
-    # add binaries
-    # if mass_sec != NaN, then binaries
-    n_binary = int(n_stars * fb)
-    # secindex = random.sample(list(sample.index), k=n_binary)
-    np.random.seed(42)
-    secindex = np.random.choice(list(sample.index), size=n_binary)
-    sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
+    # # add binaries
+    # # if mass_sec != NaN, then binaries
+    # n_binary = int(n_stars * fb)
+    # # secindex = random.sample(list(sample.index), k=n_binary)
+    # np.random.seed(42)
+    # secindex = np.random.choice(list(sample.index), size=n_binary)
+    # sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
 
+    secindex = sample.dropna(subset='mass_sec').index
     # add mag for each band
     for band in bands:
         # piecewise mass_mag relation
         id_cut = phase.index('CHEB')
         range1 = phase[0:id_cut]
         range2 = phase[id_cut:]
+
         mass_mag_1 = interpolate.interp1d(
             isoc[isoc['phase'].isin(range1)][mini],
             isoc[isoc['phase'].isin(range1)][band], fill_value='extrapolate')
@@ -131,6 +234,7 @@ def add_binary_wrapper(fb, n_stars, sample, isoc, imf, model, photsyn, masssec_m
         else:
             mass_mag_2 = mass_mag_1
             mass_cut = max(isoc[isoc['phase'].isin(range1)][mini])
+
         # add mag for primary(including single) & secondary star
         for m in ['pri', 'sec']:
             sample.loc[sample['mass_%s' % m] < mass_cut, '%s_%s' % (band, m)] = (
