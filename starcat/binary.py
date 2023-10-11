@@ -157,8 +157,8 @@ def add_secmass_MRD(fb, n_stars, sample):
     # no duplication! np.random.choice() will return duplicate index
     secindex = random.sample(list(sample.index), n_binary)
     qs = sample_q(qmin=0.09 / np.array(sample.loc[secindex, 'mass_pri']))
-    sample.loc[secindex, 'q'] = qs
     sample.loc[secindex, 'mass_sec'] = qs * np.array(sample.loc[secindex, 'mass_pri'])
+    sample.loc[secindex, 'q'] = qs
     return sample
 
 
