@@ -76,8 +76,18 @@ class Parsec(IsocModel):
         -------
         pd.DataFrame: isochrone containing the evolutionary phase, initial mass and photometry bands.
         """
-        logage = round_to_step(kwargs.get('logage'), step=kwargs.get('logage_step'))
-        mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
+        # logage = round_to_step(kwargs.get('logage'), step=kwargs.get('logage_step'))
+        # mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
+        logage_step = kwargs.get('logage_step')
+        mh_step = kwargs.get('mh_step')
+        if logage_step is None or logage_step == 0:
+            logage = kwargs.get('logage')
+        else:
+            logage = round_to_step(kwargs.get('logage'), step=kwargs.get('logage_step'))
+        if mh_step is None or mh_step == 0:
+            mh = kwargs.get('mh')
+        else:
+            mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
 
         source = config.config[self.model][photsyn]
         bands_isoc = source['bands_isoc']
