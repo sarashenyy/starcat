@@ -1,62 +1,8 @@
-from abc import ABC, abstractmethod
-
 import numpy as np
 import pandas as pd
 
 from . import config, IMF
 from .isoc import Isoc
-from .magerr import MagError
-
-
-class Photerr(ABC):
-    @abstractmethod
-    def add_syn_photerr(self, sample_syn, **kwargs):
-        pass
-
-
-class GaiaEDR3(Photerr):
-    def __init__(self, model, med_nobs):
-        """
-
-        Parameters
-        ----------
-        model : str
-            'parsec' or 'MIST'.
-        med_nobs : list[int]
-            Median observation number of each band. [G, BP, RP]
-        """
-        self.photsys = 'gaiaEDR3'
-        self.model = model
-
-        source = config.config[self.model][self.photsys]
-        self.bands = source['bands']
-        self.med_nobs = med_nobs
-
-    def add_syn_photerr(self, sample_syn, **kwargs):
-        """
-        Add synthetic photoerror to synthetic star sample.
-
-        Parameters
-        ----------
-        sample_syn : pd.DataFrame, cotaining [bands] cols
-            Synthetic sample without photoerror.
-        **kwargs :
-            -
-        Returns
-        -------
-        pd.DataFrame : [bands] x [_syn]
-        """
-        e = MagError(med_nobs=self.med_nobs, bands=self.bands)
-        # test when med_err is needed
-        # g_med_err, bp_med_err, rp_med_err = e.estimate_med_photoerr(sample_syn=sample_syn)
-        # sample_syn[self.bands[0] + '_err_syn'], sample_syn[self.bands[1] + '_err_syn'], sample_syn[
-        #     self.bands[2] + '_err_syn'] = (
-        #     g_med_err, bp_med_err, rp_med_err)
-        g_syn, bp_syn, rp_syn = e(sample_syn=sample_syn)
-        sample_syn[self.bands[0]], sample_syn[self.bands[1]], sample_syn[
-            self.bands[2]] = (
-            g_syn, bp_syn, rp_syn)
-        return sample_syn
 
 
 class SynStars(object):
