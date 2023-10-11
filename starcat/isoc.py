@@ -80,6 +80,7 @@ class Parsec(IsocModel):
         mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
 
         source = config.config[self.model][photsyn]
+        bands_isoc = source['bands_isoc']
         bands = source['bands']
         mini = source['mini']
         mass = source['mass']
@@ -90,6 +91,11 @@ class Parsec(IsocModel):
 
         if os.path.exists(isoc_path):
             isochrone = joblib.load(isoc_path)
+            # change bands name
+            for band_isoc, band in zip(bands_isoc, bands):
+                if band_isoc in isochrone.columns:
+                    isochrone = isochrone.rename(columns={band_isoc: band})
+            joblib.dump(isochrone, isoc_path)
         else:
             c = CMD()
             isochrone = c.get_one_isochrone(
@@ -103,10 +109,13 @@ class Parsec(IsocModel):
             for i, element in enumerate(label):
                 index = np.where(isochrone['label'] == element)[0]
                 isochrone.loc[index, 'phase'] = phase[i]
-
-        # save isochrone file
-        if not os.path.exists(isoc_path):
+            # change bands name
+            rename_dict = dict(zip(bands_isoc, bands))
+            isochrone = isochrone.rename(columns=rename_dict)
+            # save isochrone file
+            # if not os.path.exists(isoc_path):
             joblib.dump(isochrone, isoc_path)
+
         useful_columns = ['phase', mini, mass] + bands
         isoc = isochrone[useful_columns]
         return isoc
