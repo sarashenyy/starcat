@@ -191,7 +191,7 @@ def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
 
 def add_companion_mag(sample, isoc, model, photsyn):
     """
-    Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+    Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
 
     Parameters
     ----------
