@@ -23,7 +23,7 @@ class BinMS(BinMethod):
 
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
-        Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+        Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
         Secondary stars are all Main Sequence stars.
 
         Parameters
@@ -60,7 +60,7 @@ class BinSimple(BinMethod):
 
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
-        Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+        Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
         Secondary stars have the same mass range with sample.
 
         Parameters
@@ -129,7 +129,9 @@ def sample_q(qmin, qmax=None, gamma=0):
     num = len(qmin)
     if qmax is None:
         qmax = np.ones(num)
-    u = np.random.random()
+    # u = np.random.random()
+    # np.random.uniform(): [low, high)
+    u = np.random.uniform(0, 1 + 1e-4, num)
     q = (
                 u * ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) / (gamma + 1)) +
                 qmin ** (gamma + 1)
@@ -156,7 +158,8 @@ def add_secmass_MRD(fb, n_stars, sample):
     # np.random.seed(42)
     # no duplication! np.random.choice() will return duplicate index
     secindex = random.sample(list(sample.index), n_binary)
-    qs = sample_q(qmin=0.09 / np.array(sample.loc[secindex, 'mass_pri']))
+    qmin = 0.09 / np.array(sample.loc[secindex, 'mass_pri'])
+    qs = sample_q(qmin=qmin)
     sample.loc[secindex, 'mass_sec'] = qs * np.array(sample.loc[secindex, 'mass_pri'])
     sample.loc[secindex, 'q'] = qs
     return sample
