@@ -36,7 +36,7 @@ mag = 'i'
 color = ['g', 'i']
 mini = 'Mini'
 mass = 'Mass'
-mag_max = 24 # instrumental limiting magnitude
+mag_max = 25.5 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
