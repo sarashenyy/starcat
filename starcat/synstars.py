@@ -8,7 +8,7 @@ from .isoc import Isoc
 class SynStars(object):
     imf: IMF
 
-    def __init__(self, model, photsyn, imf, n_stars, binmethod, photerr):
+    def __init__(self, model, photsys, imf, n_stars, binmethod, photerr):
         """
         Synthetic cluster samples.
 
@@ -16,7 +16,7 @@ class SynStars(object):
         ----------
         model : str
             'parsec' or 'MIST'
-        photsyn : str
+        photsys : str
             'gaiaDR2' or 'daiaEDR3'
         imf : starcat.IMF
         n_stars : int
@@ -28,11 +28,11 @@ class SynStars(object):
         self.imf = imf
         self.n_stars = n_stars
         self.model = model
-        self.photsyn = photsyn
+        self.photsys = photsys
         self.binmethod = binmethod
         self.photerr = photerr
 
-        source = config.config[self.model][self.photsyn]
+        source = config.config[self.model][self.photsys]
         self.bands = source['bands']
         self.mag_max = source['mag_max']
         self.bands = source['bands']
@@ -50,7 +50,7 @@ class SynStars(object):
         Parameters
         ----------
         theta : tuple
-            logage, mh, fb, dist, Av
+            logage, mh, dist, Av, fb
         step : tuple
             logage_step, mh_step
         isoc :
@@ -69,21 +69,17 @@ class SynStars(object):
             isoc = variable_type_isoc
         elif isinstance(variable_type_isoc, Isoc):
             isoc = variable_type_isoc.get_isoc(
-                self.photsyn, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
+                self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
             )
         else:
             print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
 
         # !step 2: add distance and Av, make observed iso
-        for _ in self.bands:
-            # get extinction coeficients
-            l, w, c = ext_coefs(_)
-            #    sample_syn[_] += dm
-            isoc[_] = isoc[_] + 5. * np.log10(dist * 1.e3) - 5. + c * Av
+        isoc_new = self.get_observe_isoc(isoc, dist, Av)
 
         # !step 3: sample isochrone with specified Binary Method
         #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-        sample_syn = self.sample_stars(isoc, fb)
+        sample_syn = self.sample_stars(isoc_new, fb)
 
         # !step 4: add photometry error for synthetic sample
         sample_syn = self.photerr.add_syn_photerr(sample_syn)
@@ -133,9 +129,21 @@ class SynStars(object):
 
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
-            fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsyn
+            fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsys
         )
         return sample_syn
+
+    def get_observe_isoc(self, isoc, dist, Av):
+        columns = isoc.columns
+        isoc_new = pd.DataFrame(columns=columns)
+        col_notin_bands = list(set(columns) - set(self.bands))
+        isoc_new[col_notin_bands] = isoc[col_notin_bands]
+        for _ in self.bands:
+            # get extinction coeficients
+            l, w, c = ext_coefs(_)
+            #    sample_syn[_] += dm
+            isoc_new[_] = isoc[_] + 5. * np.log10(dist * 1.e3) - 5. + c * Av
+        return isoc_new
 
 
 def ext_coefs(band):
