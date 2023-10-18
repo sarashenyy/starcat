@@ -39,7 +39,7 @@ class SynStars(object):
         self.mini = source['mini']
         self.mag = source['mag']
 
-    def __call__(self, theta, step, variable_type_isoc, *args, **kwargs):
+    def __call__(self, theta, variable_type_isoc, *args, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -50,18 +50,21 @@ class SynStars(object):
         Parameters
         ----------
         theta : tuple
-            logage, mh, fb, dm
+            logage, mh, fb, dist, Av
         step : tuple
             logage_step, mh_step
         isoc :
             starcat.Isoc() or pd.DataFRame, optional
             - starcat.Isoc() : Isoc(Parsec()), Isoc(MIST()). Default is None.
             - pd.DataFrame : isoc [phase, mini, [bands]]
+        *kwargs :
+            logage_step
+            mh_step
         """
-        logage, mh, fb, dm = theta
-        logage_step, mh_step = step
-
-        # step 1: logage, mh ==> isoc [phase, mini, [bands]]
+        logage, mh, dist, Av, fb = theta
+        logage_step = kwargs.get('logage_step')
+        mh_step = kwargs.get('mh_step')
+        # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
         if isinstance(variable_type_isoc, pd.DataFrame):
             isoc = variable_type_isoc
         elif isinstance(variable_type_isoc, Isoc):
@@ -71,18 +74,21 @@ class SynStars(object):
         else:
             print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
 
-        # step 2: sample isochrone with specified Binary Method
-        #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-        sample_syn = self.sample_stars(isoc, fb, dm)
-
-        # step 3: add distance module
+        # !step 2: add distance and Av, make observed iso
         for _ in self.bands:
-            sample_syn[_] += dm
+            # get extinction coeficients
+            l, w, c = ext_coefs(_)
+            #    sample_syn[_] += dm
+            isoc[_] = isoc[_] + 5. * np.log10(dist * 1.e3) - 5. + c * Av
 
-        # step 4: add photometry error for synthetic sample
+        # !step 3: sample isochrone with specified Binary Method
+        #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+        sample_syn = self.sample_stars(isoc, fb)
+
+        # !step 4: add photometry error for synthetic sample
         sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
-        # step 5: discard nan&inf values primarily due to failed interpolate
+        # !step 5: discard nan&inf values primarily due to failed interpolate
         columns_to_check = self.bands
         sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
         for column in columns_to_check:
@@ -91,7 +97,7 @@ class SynStars(object):
 
         return sample_syn
 
-    def define_mass(self, isoc, dm):
+    def define_mass(self, isoc):
         """
 
         Parameters
@@ -100,12 +106,12 @@ class SynStars(object):
         dm : float
         """
         mass_min = min(
-            isoc[(isoc[self.mag] + dm) <= self.mag_max][self.mini]
+            isoc[(isoc[self.mag]) <= self.mag_max][self.mini]
         )
         mass_max = max(isoc[self.mini])
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, fb, dm):
+    def sample_stars(self, isoc, fb):
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -113,7 +119,6 @@ class SynStars(object):
         ----------
         isoc : pd.DataFrame
         fb : float
-        dm : float
 
         Returns
         -------
@@ -121,13 +126,36 @@ class SynStars(object):
             sample_syn ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
         """
         # define mass range
-        mass_min, mass_max = self.define_mass(isoc=isoc, dm=dm)
+        mass_min, mass_max = self.define_mass(isoc=isoc)
         # create synthetic sample of length n_stars
         sample_syn = pd.DataFrame(np.zeros((self.n_stars, 1)), columns=['mass_pri'])
         sample_syn['mass_pri'] = self.imf.sample(n_stars=self.n_stars, mass_min=mass_min, mass_max=mass_max)
 
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
-            fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsyn, dm
+            fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsyn
         )
         return sample_syn
+
+
+def ext_coefs(band):
+    """
+    From PARSEC CMD
+
+    Parameters
+    ----------
+    band: list
+
+    Returns
+    -------
+    λeff (Å), ωeff (Å), Aλ/AV
+    """
+    sys_param = {'NUV': [2887.74, 609, 1.88462],
+                 'u': [3610.40, 759, 1.55299],
+                 'g': [4811.96, 1357, 1.19715],
+                 'r': [6185.81, 1435, 0.86630],
+                 'i': [7641.61, 1536, 0.66204],
+                 'z': [9043.96, 1108, 0.47508],
+                 'y': [9660.53, 633, 0.42710]}
+
+    return sys_param[band]
