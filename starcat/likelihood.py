@@ -91,17 +91,20 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample
     """
     logage, mh = theta_age_mh
     theta = logage, mh, fb, dm
-    lnlike = lnlike_4p(theta, step, isoc, likelihoodfunc, synstars, sample_obs)
+    lnlike = lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs)
     return lnlike
 
 
-def lnlike_4p(theta, step, isoc, likelihoodfunc, synstars, sample_obs):
+def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs):
     warnings.filterwarnings("ignore", category=RuntimeWarning)
-    logage, mh, fb, dm = theta
-    if (logage > 10.0) or (logage < 6.6) or (mh < -0.9) or (mh > 0.7) or (fb < 0.05) or (fb > 1) or (dm < 2) or (
-            dm > 20):
+    logage, mh, dist, Av, fb = theta
+    logage_step, mh_step = step
+    # !NOTE: theta range, dist(for M31) range [700,800] kpc
+    # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
+    if ((logage > 10.0) or (logage < 6.6) or (mh < -0.9) or (mh > 0.7) or
+            (dist < 700) or (dist > 850) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1)):
         return -np.inf
-    sample_syn = synstars(theta, step, isoc)
+    sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
     lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
     return lnlike
     # import warnings
