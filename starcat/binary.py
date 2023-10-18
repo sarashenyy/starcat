@@ -75,10 +75,8 @@ class BinSimple(BinMethod):
         photsyn : str
             'gaiaDR2' or 'gaiaEDR3'
         *args :
-            - dm (float)
         """
-        dm = args
-        masssec_min, masssec_max = define_secmass_simple(isoc=isoc, dm=dm, model=model, photsyn=photsyn)
+        masssec_min, masssec_max = define_secmass_simple(isoc=isoc, model=model, photsyn=photsyn)
         sample = add_secmass_simple(
             fb=fb, n_stars=n_stars, sample=sample, imf=imf,
             masssec_min=masssec_min, masssec_max=masssec_max
@@ -265,13 +263,13 @@ def define_secmass_ms(isoc, model, photsyn):
     return masssec_min, masssec_max
 
 
-def define_secmass_simple(isoc, dm, model, photsyn):
+def define_secmass_simple(isoc, model, photsyn):
     source = config.config[model][photsyn]
     mini = source['mini']
     mag = source['mag']
     mag_max = source['mag_max']
     masssec_min = min(
-        isoc[(isoc[mag] + dm) <= mag_max][mini]
+        isoc[(isoc[mag]) <= mag_max][mini]
     )
     masssec_max = max(isoc[mini])
     return masssec_min, masssec_max
