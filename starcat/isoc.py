@@ -66,7 +66,7 @@ class Parsec(IsocModel):
         ----------
         photsyn : str, optinal
             The synthetic photometry to use for isochrone. For example: "gaiaDR2". See config.toml for more options.
-        kwargs : dict
+        **kwargs : dict
             - logage (float): logarithmic age
             - logage_step (float): step size of logage
             - mh (float): [M/H]
@@ -102,10 +102,13 @@ class Parsec(IsocModel):
         if os.path.exists(isoc_path):
             isochrone = joblib.load(isoc_path)
             # change bands name
+            flag = False
             for band_isoc, band in zip(bands_isoc, bands):
                 if band_isoc in isochrone.columns:
+                    flag = True
                     isochrone = isochrone.rename(columns={band_isoc: band})
-            joblib.dump(isochrone, isoc_path)
+            if flag:
+                joblib.dump(isochrone, isoc_path)
         else:
             c = CMD()
             isochrone = c.get_one_isochrone(

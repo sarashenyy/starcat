@@ -23,11 +23,12 @@ class IMF(object):
         elif self.type == 'chabrier':
             self.imf = lambda x: np.where(x < 1.0, x ** -1.55, x ** -2.7)
 
-    def pdf_imf(self, m_i, mass_min, mass_max):
-        mask = (m_i >= mass_min) & (m_i <= mass_max)
-        return np.where(mask, self.imf(m_i) / integrate.quad(self.imf, mass_min, mass_max)[0], 0)
+    # def pdf_imf(self, m_i, mass_min, mass_max):
+    #     mask = (m_i >= mass_min) & (m_i <= mass_max)
+    #     return np.where(mask, self.imf(m_i) / integrate.quad(self.imf, mass_min, mass_max)[0], 0)
 
-    def plot_imf(self, mass_min, mass_max, n_stars):
+    @staticmethod
+    def plot_imf(mass_min, mass_max, n_stars):
         mass = pd.DataFrame(columns=['chabrier03', 'kroupa01', 'salpeter55'], index=range(n_stars))
         mass_int = np.flip(np.logspace(np.log10(mass_min), np.log10(mass_max), 1000), axis=0)
         for i in range(3):
@@ -48,7 +49,8 @@ class IMF(object):
 
             # mass_interp = interp1d(cum_imf, mass_int)
             # mass = mass_interp(r.rand(n_stars))
-            mass.iloc[:, i] = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+            # mass.iloc[:, i] = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+            mass[mass.columns[i]] = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
 
         # x = np.linspace(mass_min, mass_max, 10000)
         # y = self.imf(x)a
@@ -61,7 +63,8 @@ class IMF(object):
         # plt.xscale('log')
         plt.legend()
         plt.xlabel(r'log $ m [M_\odot]$')
-        plt.ylabel(r'log $n$')
+        # plt.ylabel(r'log $n$')
+        plt.ylabel(r'$n$')
         plt.title('Initial Mass Function (IMF)')
         plt.show()
         return mass
@@ -174,11 +177,14 @@ class IMF(object):
         # cdf
         cdf_imf = integrate.cumulative_trapezoid(pdf_imf, mass_int, initial=0)
 
-        # random seed
-        r = np.random.RandomState(seed)
-
         # mass_interp = interp1d(cum_imf, mass_int)
         # mass = mass_interp(r.rand(n_stars))
         # r.rand()  random samples from a uniform distribution over [0, 1)
-        mass = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+        if seed is not None:
+            # random seed
+            r = np.random.RandomState(seed)
+            mass = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+        else:
+            random_values = np.random.rand(n_stars)
+            mass = (interpolate.interp1d(cdf_imf, mass_int))(random_values)
         return mass
