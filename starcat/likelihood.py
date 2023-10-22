@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from joblib import Parallel, delayed
 
+from . import config
 from .cmd import CMD
 from .logger import log_time
 
@@ -14,7 +15,7 @@ class LikelihoodFunc(ABC):
         pass
 
 
-class Hist2Hist(LikelihoodFunc):
+class Hist2Hist4CMD(LikelihoodFunc):
     """
     lnlike(H_{syn},H_{obs}) = -\frac{1}{2}\sum{\frac{(H_{obs}-H_{syn})^2}{H_{obs}+H_{syn}+1}}
     """
@@ -33,13 +34,88 @@ class Hist2Hist(LikelihoodFunc):
         n_obs = len(sample_obs)
         h_syn = h_syn / (n_syn / n_obs)
         lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-        # !NOTE correction is max(lnlike) in param space
+        # NOTE correction is max(lnlike) in param space
         # correction = -230
         # lnlike = lnlike - correction - 180
         return lnlike
 
 
-class Hist2Point(LikelihoodFunc):
+class Hist2Hist4Bands(LikelihoodFunc):
+    def __init__(self, model, photsys, **kwargs):
+        """
+
+        Parameters
+        ----------
+        model
+        photsys
+        **kwargs : dict
+            - step
+            - bins
+        """
+        self.func = 'band2band'
+        self.model = model
+        self.photsys = photsys
+        source = config.config[self.model][self.photsys]
+        self.bands = source['bands']
+        self.bands_err = source['bands_err']
+        step_input = kwargs.get('step')
+        bins_input = kwargs.get('bins')
+        self.bins_flag = False
+        self.step_flag = False
+
+        if step_input is None and bins_input is None:
+            self.bins = None
+            self.bins_flag = True
+        elif step_input is not None and bins_input is None:
+            self.step = step_input
+            self.step_flag = True
+        elif step_input is None and bins_input is not None:
+            self.bins = bins_input
+            self.bins_flag = True
+        elif step_input is not None and bins_input is not None:
+            print("WARNING! Set bins and step at the same time, change to default (Sturges Rule).")
+            self.bins_flag = True
+
+    def eval_lnlike(self, sample_obs, sample_syn):
+        """
+
+        Parameters
+        ----------
+        sample_obs
+        sample_syn
+
+        Returns
+        -------
+
+        """
+
+        # calculate for each band
+        band_lnlikes = []
+        n_syn = len(sample_syn)
+        n_obs = len(sample_obs)
+        for _, _err in zip(self.bands, self.bands_err):
+            band_obs = sample_obs[_]
+            band_obs_err = sample_obs[_]
+            band_syn = sample_syn[_]
+            if self.bins_flag:
+                if self.bins is None:
+                    self.bins = int(1 + np.log2(len(sample_obs)))
+                    band_bin = self.bins
+                elif isinstance(self.bins, int):
+                    band_bin = self.bins
+            elif self.step_flag:
+                band_bin = np.arange(min(band_obs), max(band_obs) + self.step, self.step)
+
+            h_obs, he_obs = np.histogram(band_obs, bins=band_bin)
+            h_syn, he_syn = np.histogram(band_syn, bins=band_bin)
+            h_syn = h_syn / (n_syn / n_obs)
+            aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+            band_lnlikes.append(aux)
+        lnlike = np.sum(band_lnlikes)
+        return lnlike
+
+
+class Hist2Point4CMD(LikelihoodFunc):
     """
     likelihood = \prod{p_{i}^{n_i}}
     log(likelihood) =\sum{n_{i}\ln{p_{i}}}
@@ -61,7 +137,7 @@ class Hist2Point(LikelihoodFunc):
         h_syn = h_syn / np.sum(h_syn)
         # lnlike = np.sum(h_obs * np.log10(h_syn))
         lnlike = np.sum(h_obs * np.log(h_syn))
-        # !NOTE correction is max(lnlike) in param space
+        # NOTE correction is max(lnlike) in param space
         # correction = -4100
         # lnlike = lnlike - correction - 1960
         return lnlike
@@ -111,29 +187,32 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
             (dist < 700) or (dist > 850) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1)):
         return -np.inf
 
-    # sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-    # lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-
-    # * without acceleration
-    # lnlike_list = []
-    # for i in range(times):
-    #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-    #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-    #     lnlike_list.append(lnlike_one)
-    # lnlike = np.sum(lnlike_list) / times
-
-    # * acceleration with parallelization
-    def compute_lnlike_one_iteration(i):
+    if times == 1:
         sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-        lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-        return lnlike_one
+        lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+        return lnlike
 
-    lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
-    # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
-    #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
-    lnlike = np.sum(lnlike_list) / times
+    else:
+        # * without acceleration
+        # lnlike_list = []
+        # for i in range(times):
+        #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+        #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+        #     lnlike_list.append(lnlike_one)
+        # lnlike = np.sum(lnlike_list) / times
 
-    return lnlike
+        # * acceleration with parallelization
+        def compute_lnlike_one_iteration(i):
+            sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+            lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+            return lnlike_one
+
+        lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+        # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
+        #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+        lnlike = np.sum(lnlike_list) / times
+
+        return lnlike
     # import warnings
     # warnings.filterwarnings("ignore", category=RuntimeWarning)
     # try:
