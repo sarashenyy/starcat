@@ -5,11 +5,13 @@ from matplotlib import gridspec
 
 from starcat import (config,
                      Isoc, Parsec, IMF, BinMRD, CSSTsim,
-                     SynStars, lnlike_5p, Hist2Hist, Hist2Point)
+                     SynStars,
+                     lnlike_5p, Hist2Hist4CMD, Hist2Point4CMD, Hist2Hist4Bands)
 
 # !define instance from starcat
 n_stars = 5000
 bins = 50
+step_lnlike = 0.5
 photsys = 'CSST'
 model = 'parsec'
 
@@ -24,8 +26,10 @@ photerr = CSSTsim(model)
 # ?init SynStars
 synstars_inst = SynStars(model, photsys, imf_inst, n_stars, binmethod, photerr)
 # ?init LikelihoodFunc
-h2h_inst = Hist2Hist(model, photsys, bins)
-h2p_inst = Hist2Point(model, photsys, bins)
+h2h_cmd_inst = Hist2Hist4CMD(model, photsys, bins)
+h2p_cmd_inst = Hist2Point4CMD(model, photsys, bins)
+# h2h_bds_inst = Hist2Hist4Bands(model, photsys, step = step_lnlike)
+h2h_bds_inst = Hist2Hist4Bands(model, photsys)
 
 # !create synthetic cluster for validation
 logage_val = 7.
@@ -124,10 +128,10 @@ step = (logage_step, mh_step)
 
 logage = np.arange(6.6, 8., logage_step)
 mh = np.arange(-0.5, 0.5, mh_step)
-dist = np.arange(750, 800, 10)
+dist = np.arange(750, 850, 10)
 Av = np.arange(0., 1., 0.1)
 fb = np.arange(0.2, 1., 0.1)
-times = 50
+times = 1
 
 # ! calculate joint distribution
 ii, jj, aa, bb, cc = np.indices((len(logage), len(mh), len(dist), len(Av), len(fb)))
@@ -143,24 +147,31 @@ dist_vals = dist[aa]
 Av_vals = Av[bb]
 fb_vals = fb[cc]
 
-joint_distrib_h2h = np.zeros((len(logage), len(mh), len(dist), len(Av), len(fb)))
-joint_distrib_h2p = np.zeros((len(logage), len(mh), len(dist), len(Av), len(fb)))
+joint_lnlike_h2h_cmd = np.zeros((len(logage), len(mh), len(dist), len(Av), len(fb)))
+joint_lnlike_h2p_cmd = np.zeros((len(logage), len(mh), len(dist), len(Av), len(fb)))
+joint_lnlike_h2h_bds = np.zeros((len(logage), len(mh), len(dist), len(Av), len(fb)))
 
 
-def h2h_wrapper(theta_5p):
-    h2h = lnlike_5p(theta_5p, step, isoc_inst, h2h_inst, synstars_inst, sample_val, times)
+def h2h_cmd_wrapper(theta_5p):
+    h2h_cmd = lnlike_5p(theta_5p, step, isoc_inst, h2h_cmd_inst, synstars_inst, sample_val, times)
+    return h2h_cmd
+
+
+def h2p_cmd_wrapper(theta_5p):
+    h2p_cmd = lnlike_5p(theta_5p, step, isoc_inst, h2p_cmd_inst, synstars_inst, sample_val, times)
+    return h2p_cmd
+
+
+def h2h_bds_wrapper(theta_5p):
+    h2h = lnlike_5p(theta_5p, step, isoc_inst, h2h_bds_inst, synstars_inst, sample_val, times)
     return h2h
 
 
-def h2p_wrapper(theta_5p):
-    h2p = lnlike_5p(theta_5p, step, isoc_inst, h2p_inst, synstars_inst, sample_val, times)
-    return h2p
-
-
 def compute_h2h_h2p(l, m, d, A, f):
-    h2h = lnlike_5p((l, m, d, A, f), step, isoc_inst, h2h_inst, synstars_inst, sample_val, times)
-    h2p = lnlike_5p((l, m, d, A, f), step, isoc_inst, h2p_inst, synstars_inst, sample_val, times)
-    return h2h, h2p
+    h2h_cmd = lnlike_5p((l, m, d, A, f), step, isoc_inst, h2h_cmd_inst, synstars_inst, sample_val, times)
+    h2p_cmd = lnlike_5p((l, m, d, A, f), step, isoc_inst, h2p_cmd_inst, synstars_inst, sample_val, times)
+    h2h_bds = lnlike_5p((l, m, d, A, f), step, isoc_inst, h2h_bds_inst, synstars_inst, sample_val, times)
+    return h2h_cmd, h2p_cmd, h2h_bds
 
 
 # def if_pickle_good(l, m):
@@ -173,40 +184,42 @@ def compute_h2h_h2p(l, m, d, A, f):
 
 # 并行计算联合分布
 n_jobs = -1
-results_h2h = Parallel(n_jobs=n_jobs)(
-    delayed(h2h_wrapper)((l, m, d, A, f)) for l, m, d, A, f in zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
-)
+# results_h2h_cmd = Parallel(n_jobs=n_jobs)(
+#     delayed(h2h_cmd_wrapper)((l, m, d, A, f)) for l, m, d, A, f in
+#     zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
+# )
 # results_h2p = Parallel(n_jobs=n_jobs)(
 #     delayed(h2p_wrapper)((l, m, d, A, f)) for l, m, d, A, f in zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
 # )
-# results_h2h, results_h2p = zip(*Parallel(n_jobs=n_jobs)(
-#     delayed(compute_h2h_h2p)(l, m, d, A, f) for l, m, d, A, f in zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
-# ))
+# results_h2h_bds = Parallel(n_jobs=n_jobs)(
+#     delayed(h2h_bds_wrapper)((l, m, d, A, f)) for l, m, d, A, f in zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
+# )
+results_h2h_cmd, results_h2p_cmd, results_h2h_bds = zip(*Parallel(n_jobs=n_jobs)(
+    delayed(compute_h2h_h2p)(l, m, d, A, f) for l, m, d, A, f in zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
+))
 
-# 将结果重新排列到 joint_distrib_h2h 和 joint_distrib_h2p
-# for (ii, jj, aa, bb, cc), result in zip(itertools.product(
-#         range(len(logage)), range(len(mh)), range(len(dist)), range(len(Av)), range(len(fb)), results_h2h)):
-#     joint_distrib_h2h[ii, jj, aa, bb, cc] = result
-# for (ii, jj, aa, bb, cc), result in zip(itertools.product(
-#         range(len(logage)), range(len(mh)), range(len(dist)), range(len(Av)), range(len(fb)), results_h2p)):
-#     joint_distrib_h2p[ii, jj, aa, bb, cc] = result
-joint_distrib_h2h[ii, jj, aa, bb, cc] = results_h2h
-# joint_distrib_h2p[ii, jj, aa, bb, cc] = results_h2p
+joint_lnlike_h2h_cmd[ii, jj, aa, bb, cc] = results_h2h_cmd
+joint_lnlike_h2p_cmd[ii, jj, aa, bb, cc] = results_h2p_cmd
+joint_lnlike_h2h_bds[ii, jj, aa, bb, cc] = results_h2h_bds
 
-end_time = time.time()
-run_time = end_time - start_time
 # 120000 costs 9min
 # 120000(lnlike one)*2(h2h,h2p) costs 9min
+# 120000(50 times) costs 8847s=147min=2.45h
+end_time = time.time()
+run_time = end_time - start_time
 print(f"运行时间: {run_time} 秒")
+
 
 # %%
 # ! draw corner plot
 truth = list(theta_val)
 parameters = [logage, mh, dist, Av, fb]
-joint_distribution = joint_distrib_h2h
+ln_joint_distribution = joint_lnlike_h2h_cmd
+joint_distribution = np.exp(ln_joint_distribution)
 num_subplot = len(joint_distribution.shape)
-label = ['$log_{10}{\\tau}$', '[M/H]', '$d$', '$A_{v}$', '$f_{b}$']
-# marginal_p = [marginal_logage, marginal_mh, marginal_dist, marginal_Av, marginal_fb]
+label = ['$log_{10}{\\tau}$', '[M/H]', '$d $(kpc)', '$A_{v}$', '$f_{b}$']
+info = [photsys, 'kroupa01', 'BinMRD(uniform distribution)', 'Hist2Hist4Bands', n_stars]
+
 
 fig = plt.figure(figsize=(10, 10))
 gs = gridspec.GridSpec(num_subplot, num_subplot)  # (nrows,ncols)
@@ -245,15 +258,17 @@ for col in range(num_subplot):
     ax_diagonal.tick_params(axis='x', direction='out')
     ax_diagonal.tick_params(axis='y', direction='out')
 
-    ax_diagonal.set_xlabel(label[col])
-    ax_diagonal.set_ylabel(label[col])
+    ax_diagonal.set_xlabel(label[col], fontsize=16)
+    ax_diagonal.set_ylabel(label[col], fontsize=16)
 
     # ! calculate marginal distribution of two parameters
     if col < num_subplot - 1:
         rows_to_draw = rows_to_draw[1:]
         for row in rows_to_draw:
-            marginal_pp = np.sum(joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
-            marginal_pp = np.transpose(marginal_pp)
+            # marginal_pp = np.sum(joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
+            # marginal_pp = np.transpose(marginal_pp)
+            ln_marginal_pp = np.sum(ln_joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
+            ln_marginal_pp = np.transpose(ln_marginal_pp)
             # print(f'row,col={row, col}, axis={tuple(set(np.arange(num_subplot)) - {col, row})}, '
             #       f'marginal_pp={marginal_pp.shape}')
             data_y = parameters[row]
@@ -263,10 +278,10 @@ for col in range(num_subplot):
             ax.scatter(x_grid, y_grid, color='gray', alpha=0.5, s=2)
             # ax.scatter(x_grid, y_grid, c=marginal_pp, cmap='viridis')
             # * NOTE! ax.imshow(pp), pp.shape=(rows_Y, cols_X)
-            ax.imshow(marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+            ax.imshow(ln_marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
             # * NOTE! ax.contour(X,Y,Z)
             # * NOTE! X and Y must both be 2D with the same shape as Z (e.g. created via numpy.meshgrid)
-            ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
+            ax.contour(x_grid, y_grid, ln_marginal_pp, colors='black', linewidths=0.5, linestyles='-',
                        extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
             ax.set_aspect('auto')
             ax.axvline(truth[col], c='r', linestyle='--')
@@ -289,8 +304,12 @@ for col in range(num_subplot):
             ax.tick_params(axis='y', direction='out')
 
             if row == num_subplot - 1:
-                ax.set_xlabel(label[col])
+                ax.set_xlabel(label[col], fontsize=16)
             if col == 0:
-                ax.set_ylabel(label[row])
+                ax.set_ylabel(label[row], fontsize=16)
 
+fig.text(0.5, 0.7, f'Truth: {truth}\n\n'
+                   f'Photsys: {info[0]}\nIMF: {info[1]}\nBinary: {info[2]}\nLikelihood: {info[3]}\n'
+                   f'Synthetic star number: {info[4]}',
+         fontsize=16, ha='left')
 plt.show()

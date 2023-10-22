@@ -50,6 +50,8 @@ print(f"运行时间: {run_time} 秒")
 # * CHANGE SOME PROPERTIES FOR CORNER
 truth = list(mean)
 parameters = [x, y, z]
+# lnlike_gaussian = copy.deepcopy(likelihood_values)
+# lnlike_gaussian = np.log(lnlike_gaussian)
 joint_distribution = likelihood_values
 num_subplot = len(joint_distribution.shape)
 label = ['x', 'y', 'z']
