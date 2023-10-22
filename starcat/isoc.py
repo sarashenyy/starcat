@@ -7,6 +7,7 @@ from berliner import CMD
 from joblib import Parallel, delayed
 
 from . import config
+from .logger import log_time
 from .widgets import round_to_step
 
 
@@ -59,6 +60,7 @@ class Parsec(IsocModel):
     def __init__(self):
         self.model = 'parsec'
 
+    @log_time
     def get_isoc(self, photsyn, **kwargs):
         """
         Get isochrone from parsec model.

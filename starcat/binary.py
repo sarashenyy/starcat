@@ -5,6 +5,7 @@ import numpy as np
 from scipy.interpolate import interpolate
 
 from . import config
+from .logger import log_time
 
 
 class BinMethod(ABC):
@@ -21,6 +22,7 @@ class BinMS(BinMethod):
     def __init__(self):
         self.method = 'MainSequenceBinary'
 
+    @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -58,6 +60,7 @@ class BinSimple(BinMethod):
     def __init__(self):
         self.method = 'SimpleBinary'
 
+    @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -97,6 +100,7 @@ class BinMRD(BinMethod):
     def __init__(self):
         self.method = 'BinaryMRD'
 
+    @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample)
         sample = add_companion_mag(

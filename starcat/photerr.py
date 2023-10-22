@@ -4,11 +4,13 @@ import numpy as np
 
 from . import config
 from .calSN import calculateSkyPix, calculateSN
+from .logger import log_time
 from .magerr import MagError
 
 
 class Photerr(ABC):
     @abstractmethod
+    @log_time
     def add_syn_photerr(self, sample_syn, **kwargs):
         pass
 

@@ -3,6 +3,7 @@ import pandas as pd
 
 from . import config, IMF
 from .isoc import Isoc
+from .logger import log_time
 
 
 class SynStars(object):
@@ -39,6 +40,7 @@ class SynStars(object):
         self.mini = source['mini']
         self.mag = source['mag']
 
+    @log_time
     def __call__(self, theta, variable_type_isoc, *args, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
