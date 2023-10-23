@@ -12,7 +12,7 @@ mag = 'G'
 color = ['BP', 'RP']
 mini = 'Mini'
 mass = 'Mass'
-mag_max = 18
+mag_max = 20
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
@@ -24,7 +24,7 @@ mag = 'G'
 color = ['BP', 'RP']
 mini = 'Mini'
 mass = 'Mass'
-mag_max = 18
+mag_max = 20
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
@@ -32,6 +32,7 @@ phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 isoc_dir = 'isochrones/parsec/CSST/'
 bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
 bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
+bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
 mag = 'i'
 color = ['g', 'i']
 mini = 'Mini'
