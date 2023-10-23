@@ -4,6 +4,7 @@ import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
+from joblib_progress import joblib_progress
 from matplotlib import gridspec
 
 from draw_corner import draw_corner
@@ -142,12 +143,12 @@ logage_step = 0.1
 mh_step = 0.05
 step = (logage_step, mh_step)
 
-logage = np.arange(6.6, 9.6, logage_step)
+logage = np.arange(6.6, 8., logage_step)
 mh = np.arange(-0.5, 0.5, mh_step)
-dist = np.arange(700, 850, 10)
-Av = np.arange(0., 3., 0.2)
-fb = np.arange(0., 1., 0.1)
-times = 50
+dist = np.arange(750, 850, 10)
+Av = np.arange(0., 1., 0.1)
+fb = np.arange(0.2, 1., 0.1)
+times = 2
 
 # ! calculate joint distribution
 ii, jj, aa, bb, cc = np.indices((len(logage), len(mh), len(dist), len(Av), len(fb)))
@@ -212,10 +213,15 @@ n_jobs = -1
 #     delayed(h2h_bds_wrapper)((l, m, d, A, f)) for l, m, d, A, f in
 #     zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
 # )
-results_h2h_cmd, results_h2p_cmd, results_h2h_bds = zip(*Parallel(n_jobs=n_jobs)(
-    delayed(compute_h2h_h2p)(l, m, d, A, f) for l, m, d, A, f in
-    zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
-))
+# results_h2h_cmd, results_h2p_cmd, results_h2h_bds = zip(*Parallel(n_jobs=n_jobs)(
+#     delayed(compute_h2h_h2p)(l, m, d, A, f) for l, m, d, A, f in
+#     zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
+# ))
+with joblib_progress("Calculating lnlikes...", total=len(ii)):
+    results_h2h_cmd, results_h2p_cmd, results_h2h_bds = zip(*Parallel(n_jobs=n_jobs)(
+        delayed(compute_h2h_h2p)(l, m, d, A, f) for l, m, d, A, f in
+        zip(logage_vals, mh_vals, dist_vals, Av_vals, fb_vals)
+    ))
 
 joint_lnlike_h2h_cmd[ii, jj, aa, bb, cc] = results_h2h_cmd
 joint_lnlike_h2p_cmd[ii, jj, aa, bb, cc] = results_h2p_cmd
