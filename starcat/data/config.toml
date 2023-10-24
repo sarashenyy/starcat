@@ -8,8 +8,8 @@ bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
 # if there is more than one color and more than one mag,
 # change mag from str to list and be careful for the place where used it !!
-mag = 'G'
-color = ['BP', 'RP']
+mag = ['G']
+color = [['BP', 'RP']]
 mini = 'Mini'
 mass = 'Mass'
 mag_max = 20
@@ -20,8 +20,8 @@ phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 isoc_dir = 'isochrones/parsec/gaiaEDR3/'
 bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
-mag = 'G'
-color = ['BP', 'RP']
+mag = ['G']
+color = [['BP', 'RP']]
 mini = 'Mini'
 mass = 'Mass'
 mag_max = 20
@@ -33,8 +33,8 @@ isoc_dir = 'isochrones/parsec/CSST/'
 bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
 bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
 bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
-mag = 'i'
-color = ['g', 'i']
+mag = ['u', 'g', 'r', 'i', 'z', 'y']
+color = [['NUV', 'u'], ['u', 'g'], ['g', 'r'], ['r', 'i'], ['i', 'z'], ['z', 'y']]
 mini = 'Mini'
 mass = 'Mass'
 # mag_max = instrument limit + 0.5(consider faint binary) ;

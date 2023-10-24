@@ -2,7 +2,7 @@ import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
-from joblib import Parallel, delayed
+from matplotlib import pyplot as plt
 
 from . import config
 from .cmd import CMD
@@ -20,24 +20,50 @@ class Hist2Hist4CMD(LikelihoodFunc):
     lnlike(H_{syn},H_{obs}) = -\frac{1}{2}\sum{\frac{(H_{obs}-H_{syn})^2}{H_{obs}+H_{syn}+1}}
     """
 
-    def __init__(self, model, photsys, bins: int):
+    def __init__(self, model, photsys, bins: int, number=1):
         self.func = 'hist2hist'
         self.model = model
         self.photsys = photsys
         self.bins = bins
+        self.number = number
 
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
-        n_syn = len(sample_syn)
-        n_obs = len(sample_obs)
-        h_syn = h_syn / (n_syn / n_obs)
-        lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-        # NOTE correction is max(lnlike) in param space
-        # correction = -230
-        # lnlike = lnlike - correction - 180
-        return lnlike
+        if self.number == 1:
+            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+            h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
+            n_syn = len(sample_syn)
+            n_obs = len(sample_obs)
+            h_syn = h_syn / (n_syn / n_obs)
+            lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+            # NOTE correction is max(lnlike) in param space
+            # correction = -230
+            # lnlike = lnlike - correction - 180
+            return lnlike
+        else:
+            source = config.config[self.model][self.photsys]
+            n_syn = len(sample_syn)
+            n_obs = len(sample_obs)
+            lnlikes = []
+            for i in range(self.number):
+                m_obs = sample_obs[source['mag'][i]]
+                c_obs = sample_obs[source['color'][i][0]] - sample_obs[source['color'][i][1]]
+                m_syn = sample_syn[source['mag'][i]]
+                c_syn = sample_syn[source['color'][i][0]] - sample_syn[source['color'][i][1]]
+                if isinstance(self.bins, int):
+                    hist_obs = plt.hist2d(c_obs, m_obs, self.bins)
+                    h_obs, xe_obs, ye_obs = hist_obs[0], hist_obs[1], hist_obs[2]
+                    hist_syn = plt.hist2d(c_syn, m_syn, self.bins)
+                    h_syn, xe_syn, ye_syn = hist_syn[0], hist_syn[1], hist_syn[2]
+                elif isinstance(self.bins, tuple):
+                    h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
+                    h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
+
+                h_syn = h_syn / (n_syn / n_obs)
+                aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+                lnlikes.append(aux)
+            lnlike = np.mean(lnlikes)
+            return lnlike
 
 
 class Hist2Hist4Bands(LikelihoodFunc):
@@ -95,7 +121,7 @@ class Hist2Hist4Bands(LikelihoodFunc):
         n_obs = len(sample_obs)
         for _, _err in zip(self.bands, self.bands_err):
             band_obs = sample_obs[_]
-            band_obs_err = sample_obs[_]
+            # band_obs_err = sample_obs[_]
             band_syn = sample_syn[_]
             if self.bins_flag:
                 if self.bins is None:
@@ -121,26 +147,63 @@ class Hist2Point4CMD(LikelihoodFunc):
     log(likelihood) =\sum{n_{i}\ln{p_{i}}}
     """
 
-    def __init__(self, model, photsys, bins: int):
+    def __init__(self, model, photsys, bins: int, number=1):
+        """
+
+        Parameters
+        ----------
+        model
+        photsys
+        bins
+        number : int
+            number of CMDs
+        """
         self.func = 'hist2point'
         self.model = model
         self.photsys = photsys
         self.bins = bins
+        self.number = number
 
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
-        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
-        epsilon = 1e-20
-        h_syn = h_syn / np.sum(h_syn)
-        h_syn = h_syn + epsilon
-        h_syn = h_syn / np.sum(h_syn)
-        # lnlike = np.sum(h_obs * np.log10(h_syn))
-        lnlike = np.sum(h_obs * np.log(h_syn))
-        # NOTE correction is max(lnlike) in param space
-        # correction = -4100
-        # lnlike = lnlike - correction - 1960
-        return lnlike
+        if self.number == 1:
+            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
+            h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
+            epsilon = 1e-20
+            h_syn = h_syn / np.sum(h_syn)
+            h_syn = h_syn + epsilon
+            h_syn = h_syn / np.sum(h_syn)
+            # lnlike = np.sum(h_obs * np.log10(h_syn))
+            lnlike = np.sum(h_obs * np.log(h_syn))
+            # NOTE correction is max(lnlike) in param space
+            # correction = -4100
+            # lnlike = lnlike - correction - 1960
+            return lnlike
+        else:
+            source = config.config[self.model][self.photsys]
+            epsilon = 1e-20
+            lnlikes = []
+            for i in range(self.number):
+                m_obs = sample_obs[source['mag'][i]]
+                c_obs = sample_obs[source['color'][i][0]] - sample_obs[source['color'][i][1]]
+                m_syn = sample_syn[source['mag'][i]]
+                c_syn = sample_syn[source['color'][i][0]] - sample_syn[source['color'][i][1]]
+                if isinstance(self.bins, int):
+                    hist_obs = plt.hist2d(c_obs, m_obs, self.bins)
+                    h_obs, xe_obs, ye_obs = hist_obs[0], hist_obs[1], hist_obs[2]
+                    hist_syn = plt.hist2d(c_syn, m_syn, self.bins)
+                    h_syn, xe_syn, ye_syn = hist_syn[0], hist_syn[1], hist_syn[2]
+                elif isinstance(self.bins, tuple):
+                    h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
+                    h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
+
+                h_syn = h_syn / np.sum(h_syn)
+                h_syn = h_syn + epsilon
+                h_syn = h_syn / np.sum(h_syn)
+                aux = np.sum(h_obs * np.log(h_syn))
+                lnlikes.append(aux)
+            lnlike = np.mean(lnlikes)
+            return lnlike
 
 
 def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample_obs):
@@ -194,23 +257,28 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
 
     else:
         # * without acceleration
-        # lnlike_list = []
-        # for i in range(times):
-        #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-        #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-        #     lnlike_list.append(lnlike_one)
-        # lnlike = np.sum(lnlike_list) / times
-
-        # * acceleration with parallelization
-        def compute_lnlike_one_iteration(i):
+        lnlike_list = []
+        for i in range(times):
             sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
             lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-            return lnlike_one
-
-        lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
-        # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
-        #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+            lnlike_list.append(lnlike_one)
         lnlike = np.sum(lnlike_list) / times
+
+        # * acceleration with parallelization
+        # /home/shenyueyue/Packages/miniconda3/envs/mcmc/lib/python3.10/site-packages/joblib/externals/loky/backend
+        # /resource_tracker.py:318: UserWarning: resource_tracker:
+        # There appear to be 278 leaked semlock objects to clean up at shutdown
+        #   warnings.warn('resource_tracker: There appear to be %d '
+
+        # def compute_lnlike_one_iteration(i):
+        #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+        #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+        #     return lnlike_one
+        #
+        # lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+        # # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
+        # #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+        # lnlike = np.sum(lnlike_list) / times
 
         return lnlike
     # import warnings

@@ -23,8 +23,8 @@ class CMD(object):
 
         """
         source = config.config[model][photsys]
-        m = sample[source['mag']]
-        c = sample[source['color'][0]] - sample[source['color'][1]]
+        m = sample[source['mag'][0]]
+        c = sample[source['color'][0][0]] - sample[source['color'][0][1]]
         return c, m
 
     @staticmethod
