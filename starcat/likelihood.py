@@ -36,11 +36,12 @@ class Hist2Hist4CMD(LikelihoodFunc):
             n_obs = len(sample_obs)
             h_syn = h_syn / (n_syn / n_obs)
             lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-            # NOTE correction is max(lnlike) in param space
-            # correction = -230
-            # lnlike = lnlike - correction - 180
+            # * NOTE correction, make max(lnlike)=0
+            delta = np.max(lnlike)
+            lnlike = lnlike - delta
             return lnlike
-        else:
+
+        elif self.number > 1:
             source = config.config[self.model][self.photsys]
             n_syn = len(sample_syn)
             n_obs = len(sample_obs)
@@ -53,7 +54,7 @@ class Hist2Hist4CMD(LikelihoodFunc):
                 if isinstance(self.bins, int):
                     hist_obs = plt.hist2d(c_obs, m_obs, self.bins)
                     h_obs, xe_obs, ye_obs = hist_obs[0], hist_obs[1], hist_obs[2]
-                    hist_syn = plt.hist2d(c_syn, m_syn, self.bins)
+                    hist_syn = plt.hist2d(c_syn, m_syn, bins=(xe_obs, ye_obs))
                     h_syn, xe_syn, ye_syn = hist_syn[0], hist_syn[1], hist_syn[2]
                 elif isinstance(self.bins, tuple):
                     h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
@@ -62,7 +63,10 @@ class Hist2Hist4CMD(LikelihoodFunc):
                 h_syn = h_syn / (n_syn / n_obs)
                 aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
                 lnlikes.append(aux)
-            lnlike = np.mean(lnlikes)
+            lnlike = np.sum(lnlikes)
+            # * NOTE correction, make max(lnlike)=0
+            delta = np.max(lnlike)
+            lnlike = lnlike - delta
             return lnlike
 
 
@@ -119,6 +123,7 @@ class Hist2Hist4Bands(LikelihoodFunc):
         band_lnlikes = []
         n_syn = len(sample_syn)
         n_obs = len(sample_obs)
+
         for _, _err in zip(self.bands, self.bands_err):
             band_obs = sample_obs[_]
             # band_obs_err = sample_obs[_]
@@ -175,11 +180,11 @@ class Hist2Point4CMD(LikelihoodFunc):
             h_syn = h_syn / np.sum(h_syn)
             # lnlike = np.sum(h_obs * np.log10(h_syn))
             lnlike = np.sum(h_obs * np.log(h_syn))
-            # NOTE correction is max(lnlike) in param space
-            # correction = -4100
-            # lnlike = lnlike - correction - 1960
+            # * NOTE correction, make max(lnlike)=0
+            delta = np.max(lnlike)
+            lnlike = lnlike - delta
             return lnlike
-        else:
+        elif self.number > 1:
             source = config.config[self.model][self.photsys]
             epsilon = 1e-20
             lnlikes = []
@@ -202,7 +207,10 @@ class Hist2Point4CMD(LikelihoodFunc):
                 h_syn = h_syn / np.sum(h_syn)
                 aux = np.sum(h_obs * np.log(h_syn))
                 lnlikes.append(aux)
-            lnlike = np.mean(lnlikes)
+            lnlike = np.sum(lnlikes)
+            # * NOTE correction, make max(lnlike)=0
+            delta = np.max(lnlike)
+            lnlike = lnlike - delta
             return lnlike
 
 
@@ -241,46 +249,54 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample
 
 @log_time
 def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
+    # try:
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage, mh, dist, Av, fb = theta
     logage_step, mh_step = step
     # !NOTE: theta range, dist(for M31) range [700,800] kpc
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
+    # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if ((logage > 10.0) or (logage < 6.6) or (mh < -0.9) or (mh > 0.7) or
             (dist < 700) or (dist > 850) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1)):
         return -np.inf
-
-    if times == 1:
-        sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-        lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-        return lnlike
-
     else:
-        # * without acceleration
-        lnlike_list = []
-        for i in range(times):
+        if times == 1:
             sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-            lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-            lnlike_list.append(lnlike_one)
-        lnlike = np.sum(lnlike_list) / times
+            lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+            return lnlike
 
-        # * acceleration with parallelization
-        # /home/shenyueyue/Packages/miniconda3/envs/mcmc/lib/python3.10/site-packages/joblib/externals/loky/backend
-        # /resource_tracker.py:318: UserWarning: resource_tracker:
-        # There appear to be 278 leaked semlock objects to clean up at shutdown
-        #   warnings.warn('resource_tracker: There appear to be %d '
+        elif times > 1:
+            # * without acceleration
+            lnlike_list = []
+            for i in range(times):
+                sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+                lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                lnlike_list.append(lnlike_one)
+            lnlike = np.sum(lnlike_list) / times
 
-        # def compute_lnlike_one_iteration(i):
-        #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
-        #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-        #     return lnlike_one
-        #
-        # lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
-        # # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
-        # #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
-        # lnlike = np.sum(lnlike_list) / times
+            # * acceleration with parallelization
+            # /home/shenyueyue/Packages/miniconda3/envs/mcmc/lib/python3.10/site-packages/joblib/externals/loky/backend
+            # /resource_tracker.py:318: UserWarning: resource_tracker:
+            # There appear to be 278 leaked semlock objects to clean up at shutdown
+            #   warnings.warn('resource_tracker: There appear to be %d '
 
-        return lnlike
+            # def compute_lnlike_one_iteration(i):
+            #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+            #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+            #     return lnlike_one
+            #
+            # lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+            # # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
+            # #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+            # lnlike = np.sum(lnlike_list) / times
+
+            return lnlike
+    # except ZeroDivisionError as e:
+    #     # Handle the division by zero error here
+    #     print(f"!!!!ZeroDivisionError occurred: {e}")
+    #     print(theta)
+    #     # You can add custom handling or return a specific value as needed
+    #     return None  # Or any value that makes sense in your context
     # import warnings
     # warnings.filterwarnings("ignore", category=RuntimeWarning)
     # try:
