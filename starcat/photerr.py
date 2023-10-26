@@ -12,6 +12,20 @@ class Photerr(ABC):
     @abstractmethod
     @log_time
     def add_syn_photerr(self, sample_syn, **kwargs):
+        """
+
+        Parameters
+        ----------
+        sample_syn : pd.DataFrame
+            [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
+        kwargs
+
+        Returns
+        -------
+        pd.DataFrames
+            [ mass x [_pri, _sec], bands x [_pri, _sec], bands, bands x [_err] ]
+
+        """
         pass
 
 
