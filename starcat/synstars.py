@@ -34,7 +34,8 @@ class SynStars(object):
 
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
-        self.mag_max = [x + 0.5 for x in source['mag_max']]
+        self.mag_max_obs = source['mag_max']
+        self.mag_max_syn = [x + 0.5 for x in source['mag_max']]
         self.bands = source['bands']
         self.mini = source['mini']
         self.mag = source['mag']
@@ -101,9 +102,9 @@ class SynStars(object):
                 sample_syn = sample_syn[~np.isinf(sample_syn[column])]
             # 2. discard sample_syn[mag] > mag_max
             if len(self.mag) == 1:
-                sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.mag_max[0]]
+                sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.mag_max_obs[0]]
             elif len(self.mag) > 1:
-                for mag_col, mag_max_val in zip(self.mag, self.mag_max):
+                for mag_col, mag_max_val in zip(self.mag, self.mag_max_obs):
                     sample_syn = sample_syn[sample_syn[mag_col] <= mag_max_val]
             sample_syn = sample_syn.reset_index(drop=True)
 
@@ -130,16 +131,16 @@ class SynStars(object):
         mass_max = max(isoc[self.mini])
         if len(self.mag) == 1:
             mass_min = min(
-                isoc[(isoc[self.mag[0]]) <= self.mag_max[0]][self.mini]
+                isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
             )
 
         elif len(self.mag) > 1:
             mass_min = min(
-                isoc[(isoc[self.mag[0]]) <= self.mag_max[0]][self.mini]
+                isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
             )
             for i in range(len(self.mag)):
                 aux_min = min(
-                    isoc[(isoc[self.mag[i]]) <= self.mag_max[i]][self.mini]
+                    isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]][self.mini]
                 )
                 if aux_min < mass_min:
                     mass_min = aux_min
