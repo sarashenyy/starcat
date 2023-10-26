@@ -24,7 +24,7 @@ y_vals = y[jj]
 z_vals = z[aa]
 
 # 创建均值向量
-mean = np.array([0, 0, 0])
+mean = np.array([2, 2, 2])
 # 创建协方差矩阵（单位矩阵）
 cov = np.eye(3)
 # 创建多元正态分布对象
@@ -96,10 +96,13 @@ for col in range(num_subplot):
 
     ax_diagonal.set_xlabel(label[col])
     ax_diagonal.set_ylabel(label[col])
+    # to control the x extent in non-diagonal subplots
+    left, right = ax_diagonal.get_xlim()
 
     # ! calculate marginal distribution of two parameters
     if col < num_subplot - 1:
         rows_to_draw = rows_to_draw[1:]
+
         for row in rows_to_draw:
             marginal_pp = np.sum(joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
             marginal_pp = np.transpose(marginal_pp)
@@ -110,13 +113,29 @@ for col in range(num_subplot):
             # ? draw non diagonal plots with marginal distribution of two parameters
             ax = plt.subplot(gs[row, col])
             ax.scatter(x_grid, y_grid, color='gray', alpha=0.5, s=2)
-            # ax.scatter(x_grid, y_grid, c=marginal_pp, cmap='viridis')
-            # * NOTE! ax.imshow(pp), pp.shape=(rows_Y, cols_X)
-            ax.imshow(marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+            # to control the y extent in non-diagonal subplots
+            bottom, top = ax.get_ylim()
+
             # * NOTE! ax.contour(X,Y,Z)
             # * NOTE! X and Y must both be 2D with the same shape as Z (e.g. created via numpy.meshgrid)
+            # ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
+            #            extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+            # ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
+            #            extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()), origin='lower')
             ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
-                       extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+                       extent=(left, right, bottom, top),
+                       origin='lower')
+
+            # * NOTE! ax.imshow(pp), pp.shape=(rows_Y, cols_X)
+            # * NOTE! ax.imshow(origin='lower')
+            # *       control which point in pp represents the original point in figure(lower / upper)
+            # ax.imshow(marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+            # ax.imshow(marginal_pp, cmap='jet', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()),
+            #           origin='lower')
+            ax.imshow(marginal_pp, cmap='jet',
+                      extent=(left, right, bottom, top),
+                      origin='lower')
+
             ax.set_aspect('auto')
             ax.axvline(truth[col], c='r', linestyle='--')
             ax.axhline(truth[row], c='r', linestyle='--')

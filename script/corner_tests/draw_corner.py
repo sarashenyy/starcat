@@ -4,6 +4,10 @@ from matplotlib import gridspec
 
 
 def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_path):
+    # * NOTE correction, make max(ln_joint_distribution)=0
+    delta = np.max(ln_joint_distribution)
+    ln_joint_distribution = ln_joint_distribution - delta
+
     joint_distribution = np.exp(ln_joint_distribution)
     num_subplot = len(joint_distribution.shape)
 
@@ -46,6 +50,8 @@ def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_p
 
         ax_diagonal.set_xlabel(label[col], fontsize=16)
         ax_diagonal.set_ylabel(label[col], fontsize=16)
+        # to control the x extent in non-diagonal subplots
+        left, right = ax_diagonal.get_xlim()
 
         # ! calculate marginal distribution of two parameters
         if col < num_subplot - 1:
@@ -62,13 +68,29 @@ def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_p
                 # ? draw non diagonal plots with marginal distribution of two parameters
                 ax = plt.subplot(gs[row, col])
                 ax.scatter(x_grid, y_grid, color='gray', alpha=0.5, s=2)
-                # ax.scatter(x_grid, y_grid, c=marginal_pp, cmap='viridis')
-                # * NOTE! ax.imshow(pp), pp.shape=(rows_Y, cols_X)
-                ax.imshow(ln_marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+                # to control the y extent in non-diagonal subplots
+                bottom, top = ax.get_ylim()
+
                 # * NOTE! ax.contour(X,Y,Z)
                 # * NOTE! X and Y must both be 2D with the same shape as Z (e.g. created via numpy.meshgrid)
+                # ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
+                #            extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+                # ax.contour(x_grid, y_grid, marginal_pp, colors='black', linewidths=0.5, linestyles='-',
+                #            extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()), origin='lower')
                 ax.contour(x_grid, y_grid, ln_marginal_pp, colors='black', linewidths=0.5, linestyles='-',
-                           extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+                           extent=(left, right, bottom, top),
+                           origin='lower')
+
+                # * NOTE! ax.imshow(pp), pp.shape=(rows_Y, cols_X)
+                # * NOTE! ax.imshow(origin='lower')
+                # *       control which point in pp represents the original point in figure(lower / upper)
+                # ax.imshow(marginal_pp, cmap='GnBu', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()))
+                # ax.imshow(marginal_pp, cmap='jet', extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()),
+                #           origin='lower')
+                ax.imshow(ln_marginal_pp, cmap='jet',
+                          extent=(left, right, bottom, top),
+                          origin='lower')
+
                 ax.set_aspect('auto')
                 ax.axvline(truth[col], c='r', linestyle='--')
                 ax.axhline(truth[row], c='r', linestyle='--')
