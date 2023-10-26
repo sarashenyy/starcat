@@ -214,7 +214,7 @@ class Hist2Point4CMD(LikelihoodFunc):
             return lnlike
 
 
-def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample_obs):
+def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs):
     """
 
     Parameters
@@ -243,12 +243,12 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, sample
     """
     logage, mh = theta_age_mh
     theta = logage, mh, fb, dm
-    lnlike = lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs)
+    lnlike = lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs)
     return lnlike
 
 
 @log_time
-def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
+def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, times=1):
     # try:
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage, mh, dist, Av, fb = theta
@@ -261,7 +261,7 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
         return -np.inf
     else:
         if times == 1:
-            sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
             return lnlike
 
@@ -269,7 +269,7 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, sample_obs, times):
             # * without acceleration
             lnlike_list = []
             for i in range(times):
-                sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
                 lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
                 lnlike_list.append(lnlike_one)
             lnlike = np.sum(lnlike_list) / times
