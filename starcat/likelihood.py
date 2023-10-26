@@ -36,9 +36,9 @@ class Hist2Hist4CMD(LikelihoodFunc):
             n_obs = len(sample_obs)
             h_syn = h_syn / (n_syn / n_obs)
             lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-            # * NOTE correction, make max(lnlike)=0
-            delta = np.max(lnlike)
-            lnlike = lnlike - delta
+            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # delta = np.max(lnlike)
+            # lnlike = lnlike - delta
             return lnlike
 
         elif self.number > 1:
@@ -64,9 +64,9 @@ class Hist2Hist4CMD(LikelihoodFunc):
                 aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
                 lnlikes.append(aux)
             lnlike = np.sum(lnlikes)
-            # * NOTE correction, make max(lnlike)=0
-            delta = np.max(lnlike)
-            lnlike = lnlike - delta
+            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # delta = np.max(lnlike)
+            # lnlike = lnlike - delta
             return lnlike
 
 
@@ -180,9 +180,9 @@ class Hist2Point4CMD(LikelihoodFunc):
             h_syn = h_syn / np.sum(h_syn)
             # lnlike = np.sum(h_obs * np.log10(h_syn))
             lnlike = np.sum(h_obs * np.log(h_syn))
-            # * NOTE correction, make max(lnlike)=0
-            delta = np.max(lnlike)
-            lnlike = lnlike - delta
+            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # delta = np.max(lnlike)
+            # lnlike = lnlike - delta
             return lnlike
         elif self.number > 1:
             source = config.config[self.model][self.photsys]
@@ -208,9 +208,9 @@ class Hist2Point4CMD(LikelihoodFunc):
                 aux = np.sum(h_obs * np.log(h_syn))
                 lnlikes.append(aux)
             lnlike = np.sum(lnlikes)
-            # * NOTE correction, make max(lnlike)=0
-            delta = np.max(lnlike)
-            lnlike = lnlike - delta
+            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # delta = np.max(lnlike)
+            # lnlike = lnlike - delta
             return lnlike
 
 
