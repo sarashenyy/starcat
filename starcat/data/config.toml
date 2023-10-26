@@ -10,9 +10,9 @@ bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
 # change mag from str to list and be careful for the place where used it !!
 mag = ['G']
 color = [['BP', 'RP']]
+mag_max = [20]
 mini = 'Mini'
 mass = 'Mass'
-mag_max = 20
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
@@ -22,9 +22,9 @@ bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
 mag = ['G']
 color = [['BP', 'RP']]
+mag_max = [20]
 mini = 'Mini'
 mass = 'Mass'
-mag_max = 20
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
@@ -35,11 +35,11 @@ bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
 bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
 mag = ['u', 'g', 'r', 'i', 'z', 'y']
 color = [['NUV', 'u'], ['u', 'g'], ['g', 'r'], ['r', 'i'], ['i', 'z'], ['z', 'y']]
-mini = 'Mini'
-mass = 'Mass'
 # mag_max = instrument limit + 0.5(consider faint binary) ;
 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
-mag_max = 26
+mag_max = [25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
+mini = 'Mini'
+mass = 'Mass'
 label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 

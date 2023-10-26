@@ -34,7 +34,7 @@ class SynStars(object):
 
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
-        self.mag_max = source['mag_max'] + 0.5
+        self.mag_max = [x + 0.5 for x in source['mag_max']]
         self.bands = source['bands']
         self.mini = source['mini']
         self.mag = source['mag']

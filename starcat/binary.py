@@ -11,6 +11,25 @@ from .logger import log_time
 class BinMethod(ABC):
     @abstractmethod
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+        """
+        Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
+        Secondary stars are all Main Sequence stars.
+
+        Parameters
+        ----------
+        fb
+        n_stars
+        sample
+        isoc
+        imf
+        model
+        photsyn
+        args
+
+        Returns
+        -------
+
+        """
         pass
 
 
@@ -270,10 +289,22 @@ def define_secmass_ms(isoc, model, photsyn):
 def define_secmass_simple(isoc, model, photsyn):
     source = config.config[model][photsyn]
     mini = source['mini']
-    mag = source['mag']
-    mag_max = source['mag_max']
-    masssec_min = min(
-        isoc[(isoc[mag]) <= mag_max][mini]
-    )
+    mag = source['mag']  # list
+    mag_max = [x + 0.5 for x in source['mag_max']]  # list
     masssec_max = max(isoc[mini])
+    if len(mag) == 1:
+        masssec_min = min(
+            isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
+        )
+    elif len(mag) > 1:
+        masssec_min = min(
+            isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
+        )
+        for i in range(len(mag)):
+            aux_min = min(
+                isoc[(isoc[mag[i]]) <= mag_max[i]][mini]
+            )
+            if aux_min < masssec_min:
+                masssec_min = aux_min
+
     return masssec_min, masssec_max
