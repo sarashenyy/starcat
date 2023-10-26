@@ -9,7 +9,7 @@ from .logger import log_time
 class SynStars(object):
     imf: IMF
 
-    def __init__(self, model, photsys, imf, n_stars, binmethod, photerr):
+    def __init__(self, model, photsys, imf, binmethod, photerr):
         """
         Synthetic cluster samples.
 
@@ -20,14 +20,13 @@ class SynStars(object):
         photsys : str
             'gaiaDR2' or 'daiaEDR3'
         imf : starcat.IMF
-        n_stars : int
         binmethod :
             subclass of starcat.BinMethod: BinMS(), BinSimple()
         photerr :
             subclass of starcat.Photerr: GaiaEDR3()
         """
         self.imf = imf
-        self.n_stars = n_stars
+        # self.n_stars = n_stars
         self.model = model
         self.photsys = photsys
         self.binmethod = binmethod
@@ -35,13 +34,13 @@ class SynStars(object):
 
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
-        self.mag_max = source['mag_max']
+        self.mag_max = source['mag_max'] + 0.5
         self.bands = source['bands']
         self.mini = source['mini']
         self.mag = source['mag']
 
     @log_time
-    def __call__(self, theta, variable_type_isoc, *args, **kwargs):
+    def __call__(self, theta, n_stars, variable_type_isoc, *args, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -53,6 +52,7 @@ class SynStars(object):
         ----------
         theta : tuple
             logage, mh, dist, Av, fb
+        n_stars : int
         step : tuple
             logage_step, mh_step
         isoc :
@@ -79,21 +79,45 @@ class SynStars(object):
         # !step 2: add distance and Av, make observed iso
         isoc_new = self.get_observe_isoc(isoc, dist, Av)
 
-        # !step 3: sample isochrone with specified Binary Method
-        #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-        sample_syn = self.sample_stars(isoc_new, fb)
+        # ?inspired by batch rejection sampling
+        samples = pd.DataFrame()
+        accepted = 0
+        batch_size = n_stars
 
-        # !step 4: add photometry error for synthetic sample
-        sample_syn = self.photerr.add_syn_photerr(sample_syn)
+        while accepted < n_stars:
+            # !step 3: sample isochrone with specified Binary Method
+            #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+            sample_syn = self.sample_stars(isoc_new, batch_size, fb)
 
-        # !step 5: discard nan&inf values primarily due to failed interpolate
-        columns_to_check = self.bands
-        sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
-        for column in columns_to_check:
-            sample_syn = sample_syn[~np.isinf(sample_syn[column])]
-        sample_syn = sample_syn.reset_index(drop=True)
+            # !step 4: add photometry error for synthetic sample
+            sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
-        return sample_syn
+            # !step 5: 1. discard nan&inf values primarily due to failed interpolate
+            # !        2. discard sample_syn[mag] > mag_max
+            # 1. discard nan&inf values primarily due to failed interpolate
+            columns_to_check = self.bands
+            sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
+            for column in columns_to_check:
+                sample_syn = sample_syn[~np.isinf(sample_syn[column])]
+            # 2. discard sample_syn[mag] > mag_max
+            if len(self.mag) == 1:
+                sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.mag_max[0]]
+            elif len(self.mag) > 1:
+                for mag_col, mag_max_val in zip(self.mag, self.mag_max):
+                    sample_syn = sample_syn[sample_syn[mag_col] <= mag_max_val]
+            sample_syn = sample_syn.reset_index(drop=True)
+
+            samples = pd.concat([samples, sample_syn], ignore_index=True)
+            accepted += len(sample_syn)
+            # ?dynamically adjusting rejection rate
+            rejection_rate = 1 - len(sample_syn) / batch_size
+            if rejection_rate > 0.2:
+                batch_size = int(batch_size * 1.2)
+            else:
+                batch_size = int(batch_size * 0.8)
+
+        samples = samples.iloc[:n_stars]
+        return samples
 
     def define_mass(self, isoc):
         """
@@ -103,19 +127,32 @@ class SynStars(object):
         isoc : pd.DataFrame
         dm : float
         """
-        mass_min = min(
-            isoc[(isoc[self.mag]) <= self.mag_max][self.mini]
-        )
         mass_max = max(isoc[self.mini])
+        if len(self.mag) == 1:
+            mass_min = min(
+                isoc[(isoc[self.mag[0]]) <= self.mag_max[0]][self.mini]
+            )
+
+        elif len(self.mag) > 1:
+            mass_min = min(
+                isoc[(isoc[self.mag[0]]) <= self.mag_max[0]][self.mini]
+            )
+            for i in range(len(self.mag)):
+                aux_min = min(
+                    isoc[(isoc[self.mag[i]]) <= self.mag_max[i]][self.mini]
+                )
+                if aux_min < mass_min:
+                    mass_min = aux_min
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, fb):
+    def sample_stars(self, isoc, n_stars, fb):
         """
         Create sample of synthetic stars with specified binary method.
 
         Parameters
         ----------
         isoc : pd.DataFrame
+        n_stars : int
         fb : float
 
         Returns
@@ -126,12 +163,12 @@ class SynStars(object):
         # define mass range
         mass_min, mass_max = self.define_mass(isoc=isoc)
         # create synthetic sample of length n_stars
-        sample_syn = pd.DataFrame(np.zeros((self.n_stars, 1)), columns=['mass_pri'])
-        sample_syn['mass_pri'] = self.imf.sample(n_stars=self.n_stars, mass_min=mass_min, mass_max=mass_max)
+        sample_syn = pd.DataFrame(np.zeros((n_stars, 1)), columns=['mass_pri'])
+        sample_syn['mass_pri'] = self.imf.sample(n_stars=n_stars, mass_min=mass_min, mass_max=mass_max)
 
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
-            fb, self.n_stars, sample_syn, isoc, self.imf, self.model, self.photsys
+            fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys
         )
         return sample_syn
 
