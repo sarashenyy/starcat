@@ -101,17 +101,22 @@ class Parsec(IsocModel):
         isoc_dir = source['isoc_dir']
         isoc_path = config.data_dir + isoc_dir + f'age{logage:+.2f}_mh{mh:+.2f}.joblib'
 
+        EOFE_flag = True
         if os.path.exists(isoc_path):
-            isochrone = joblib.load(isoc_path)
-            # change bands name
-            flag = False
-            for band_isoc, band in zip(bands_isoc, bands):
-                if band_isoc in isochrone.columns:
-                    flag = True
-                    isochrone = isochrone.rename(columns={band_isoc: band})
-            if flag:
-                joblib.dump(isochrone, isoc_path)
-        else:
+            try:
+                isochrone = joblib.load(isoc_path)
+                # change bands name
+                flag = False
+                for band_isoc, band in zip(bands_isoc, bands):
+                    if band_isoc in isochrone.columns:
+                        flag = True
+                        isochrone = isochrone.rename(columns={band_isoc: band})
+                if flag:
+                    joblib.dump(isochrone, isoc_path)
+            except EOFError as e:
+                EOFE_flag = False
+
+        elif os.path.exists(isoc_path) is False or EOFE_flag is False:
             c = CMD()
             isochrone = c.get_one_isochrone(
                 logage=logage, z=None, mh=mh, photsys_file=photsyn
