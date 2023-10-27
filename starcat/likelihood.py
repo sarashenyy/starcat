@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from . import config
 from .cmd import CMD
 from .logger import log_time
+from .widgets import round_to_step
 
 
 class LikelihoodFunc(ABC):
@@ -253,6 +254,9 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage, mh, dist, Av, fb = theta
     logage_step, mh_step = step
+    logage = round_to_step(logage, logage_step)
+    mh = round_to_step(mh, mh_step)
+    theta = logage, mh, dist, Av, fb
     # !NOTE: theta range, dist(for M31) range [700,800] kpc
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
