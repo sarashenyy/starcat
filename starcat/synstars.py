@@ -130,20 +130,33 @@ class SynStars(object):
         """
         mass_max = max(isoc[self.mini])
         if len(self.mag) == 1:
-            mass_min = min(
-                isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
-            )
+            try:
+                mass_min = min(
+                    isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
+                )
+            except ValueError:
+                print('Do not have any stars brighter than the mag range!!')
 
         elif len(self.mag) > 1:
-            mass_min = min(
-                isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
-            )
+            # mass_min = min(
+            #     isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
+            # )
+            # for i in range(len(self.mag)):
+            #     aux_min = min(
+            #         isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]][self.mini]
+            #     )
+            #     if aux_min < mass_min:
+            #         mass_min = aux_min
+
+            aux_list = []
             for i in range(len(self.mag)):
-                aux_min = min(
-                    isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]][self.mini]
-                )
-                if aux_min < mass_min:
-                    mass_min = aux_min
+                filtered_isoc = isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]]
+
+                if not filtered_isoc.empty:
+                    aux_min = min(filtered_isoc[self.mini])
+                    aux_list.append(aux_min)
+            mass_min = min(aux_list)
+
         return mass_min, mass_max
 
     def sample_stars(self, isoc, n_stars, fb):
