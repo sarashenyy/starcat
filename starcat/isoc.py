@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 import joblib
 import numpy as np
+import pandas as pd
 from berliner import CMD
 from joblib import Parallel, delayed
 
@@ -113,31 +114,39 @@ class Parsec(IsocModel):
                         isochrone = isochrone.rename(columns={band_isoc: band})
                 if flag:
                     joblib.dump(isochrone, isoc_path)
-            except EOFError as e:
+            except EOFError:
                 EOFE_flag = False
 
         elif os.path.exists(isoc_path) is False or EOFE_flag is False:
-            c = CMD()
-            isochrone = c.get_one_isochrone(
-                logage=logage, z=None, mh=mh, photsys_file=photsyn
-            )
-            # truncate isochrone, PMS~EAGB
-            # ATTENTION! parsec use "label" to represent evolutionary phase, different from MIST("phase")
-            isochrone = isochrone[
-                (isochrone['label'] >= min(label)) & (isochrone['label'] <= max(label))].to_pandas()
-            # add evolutionary phase info
-            for i, element in enumerate(label):
-                index = np.where(isochrone['label'] == element)[0]
-                isochrone.loc[index, 'phase'] = phase[i]
-            # change bands name
-            rename_dict = dict(zip(bands_isoc, bands))
-            isochrone = isochrone.rename(columns=rename_dict)
-            # save isochrone file
-            # if not os.path.exists(isoc_path):
-            joblib.dump(isochrone, isoc_path)
+            isochrone = pd.DataFrame([])
+            max_attempt = 20
+            attempt_time = 0
+            while isochrone.empty and attempt_time <= max_attempt:
+                c = CMD()
+                isochrone = c.get_one_isochrone(
+                    logage=logage, z=None, mh=mh, photsys_file=photsyn
+                )
+                # truncate isochrone, PMS~EAGB
+                # ATTENTION! parsec use "label" to represent evolutionary phase, different from MIST("phase")
+                isochrone = isochrone[
+                    (isochrone['label'] >= min(label)) & (isochrone['label'] <= max(label))].to_pandas()
+                # add evolutionary phase info
+                for i, element in enumerate(label):
+                    index = np.where(isochrone['label'] == element)[0]
+                    isochrone.loc[index, 'phase'] = phase[i]
+                # change bands name
+                rename_dict = dict(zip(bands_isoc, bands))
+                isochrone = isochrone.rename(columns=rename_dict)
+                # save isochrone file
+                # if not os.path.exists(isoc_path):
+                joblib.dump(isochrone, isoc_path)
+                attempt_time += 1
 
         useful_columns = ['phase', mini, mass] + bands
-        isoc = isochrone[useful_columns]
+        try:
+            isoc = isochrone[useful_columns]
+        except UnboundLocalError:
+            print(f'logage={logage}, [M/H]={mh} occurs UnboundLocal Error in getting isochrone.')
         return isoc
 
     def bulk_load(self, photsyn, n_jobs, **kwargs):
