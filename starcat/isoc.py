@@ -145,9 +145,11 @@ class Parsec(IsocModel):
         useful_columns = ['phase', mini, mass] + bands
         try:
             isoc = isochrone[useful_columns]
+            return isoc
         except UnboundLocalError:
             print(f'logage={logage}, [M/H]={mh} occurs UnboundLocal Error in getting isochrone.')
-        return isoc
+            return False
+
 
     def bulk_load(self, photsyn, n_jobs, **kwargs):
         """

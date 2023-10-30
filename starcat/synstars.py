@@ -74,6 +74,8 @@ class SynStars(object):
             isoc = variable_type_isoc.get_isoc(
                 self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
             )
+            if isoc is False:  # get_isoc() raise Error
+                return False
         else:
             print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
 

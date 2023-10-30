@@ -266,15 +266,21 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     else:
         if times == 1:
             sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
-            lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-            return lnlike
+            if sample_syn is False:
+                return 1e10
+            else:
+                lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                return lnlike
 
         elif times > 1:
             # * without acceleration
             lnlike_list = []
             for i in range(times):
                 sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
-                lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                if sample_syn is False:
+                    lnlike_one = 1e10
+                else:
+                    lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
                 lnlike_list.append(lnlike_one)
             lnlike = np.sum(lnlike_list) / times
 
