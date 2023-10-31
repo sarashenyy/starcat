@@ -112,6 +112,7 @@ class BinSimple(BinMethod):
 
 class BinMRD(BinMethod):
     """
+    ! WRONG!! WATING FOR DEBUG!!
     add condition: q > 0.09/primass
     sample secondary mass from distribution q^gamma(default gamma=0)
     """
@@ -142,7 +143,7 @@ def sample_q(qmin, qmax=None, gamma=0):
     qmax : np.array
         default is 1
     gamma : float
-
+        default is 1
     Returns
     -------
     np.array
@@ -293,18 +294,30 @@ def define_secmass_simple(isoc, model, photsyn):
     mag_max = [x + 0.5 for x in source['mag_max']]  # list
     masssec_max = max(isoc[mini])
     if len(mag) == 1:
-        masssec_min = min(
-            isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
-        )
-    elif len(mag) > 1:
-        masssec_min = min(
-            isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
-        )
-        for i in range(len(mag)):
-            aux_min = min(
-                isoc[(isoc[mag[i]]) <= mag_max[i]][mini]
+        try:
+            masssec_min = min(
+                isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
             )
-            if aux_min < masssec_min:
-                masssec_min = aux_min
+        except ValueError:
+            print('Do not have any stars brighter than the mag range!!')
+
+    elif len(mag) > 1:
+        # masssec_min = min(
+        #     isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
+        # )
+        # for i in range(len(mag)):
+        #     aux_min = min(
+        #         isoc[(isoc[mag[i]]) <= mag_max[i]][mini]
+        #     )
+        #     if aux_min < masssec_min:
+        #         masssec_min = aux_min
+        aux_list = []
+        for i in range(len(mag)):
+            filtered_isoc = isoc[(isoc[mag[i]]) <= mag_max[i]]
+
+            if not filtered_isoc.empty:
+                aux_min = min(filtered_isoc[mini])
+                aux_list.append(aux_min)
+        masssec_min = min(aux_list)
 
     return masssec_min, masssec_max
