@@ -59,7 +59,9 @@ def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_p
             for row in rows_to_draw:
                 # marginal_pp = np.sum(joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
                 # marginal_pp = np.transpose(marginal_pp)
-                ln_marginal_pp = np.sum(ln_joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
+                # ln_marginal_pp = np.sum(ln_joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
+                ln_marginal_pp = np.sum(joint_distribution, axis=tuple(set(np.arange(num_subplot)) - {col, row}))
+                ln_marginal_pp = np.log(np.where(ln_marginal_pp <= 0, 1e-10, ln_marginal_pp))
                 ln_marginal_pp = np.transpose(ln_marginal_pp)
                 # print(f'row,col={row, col}, axis={tuple(set(np.arange(num_subplot)) - {col, row})}, '
                 #       f'marginal_pp={marginal_pp.shape}')
@@ -120,5 +122,49 @@ def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_p
                        f'Photsys: {info[0]}\nIMF: {info[1]}\nBinary: {info[2]}\nLikelihood: {info[3]}\n'
                        f'Synthetic star number: {info[4]}',
              fontsize=16, ha='left')
-
     plt.savefig(savefig_path, bbox_inches='tight')
+    plt.close(fig)
+
+
+# %%
+import joblib
+
+logage_val = 7.
+mh_val = 0.
+dist_val = 780.
+Av_val = 0.5
+fb_val = 0.5
+n_val = 1500
+theta_val = logage_val, mh_val, dist_val, Av_val, fb_val
+
+logage_step = 0.1  # 0.1
+mh_step = 0.1  # 0.05
+step = (logage_step, mh_step)
+
+logage = np.arange(6.6, 8., logage_step)
+mh = np.arange(-0.9, 0.7, mh_step)
+dist = np.arange(750, 850, 10)  # 10
+Av = np.arange(0., 1., 0.1)  # 0.1
+fb = np.arange(0.2, 1., 0.1)  # 0.1
+times = 2
+n_stars = 5000
+photsys = 'CSST'
+
+truth = list(theta_val)
+parameters = [logage, mh, dist, Av, fb]
+
+label = ['$log_{10}{\\tau}$', '[M/H]', '$d $(kpc)', '$A_{v}$', '$f_{b}$']
+info_h2h_cmd = [photsys, 'kroupa01', 'BinMRD(uniform distribution)', 'Hist2Hist4CMD(6)', n_stars]
+info_h2p_cmd = [photsys, 'kroupa01', 'BinMRD(uniform distribution)', 'Hist2Point4CMD(6)', n_stars]
+
+dir = '/home/shenyueyue/Projects/starcat/data/corner/demo_age7/'
+joint_lnlike_h2h_cmd = joblib.load(dir + 'h2h_cmd(6).joblib')
+joint_lnlike_h2p_cmd = joblib.load(dir + 'h2p_cmd(6).joblib')
+
+draw_corner(truth=truth, parameters=parameters, ln_joint_distribution=joint_lnlike_h2h_cmd,
+            label=label, info=info_h2h_cmd,
+            savefig_path=dir + 'h2h_cmd2.png')
+
+draw_corner(truth=truth, parameters=parameters, ln_joint_distribution=joint_lnlike_h2p_cmd,
+            label=label, info=info_h2p_cmd,
+            savefig_path=dir + 'h2p_cmd2.png')
