@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 
 from script.widgets import read_sample_obs
 from starcat import (GaiaEDR3, Parsec,
-                     BinSimple, Hist2Point,
-                     Hist2Hist, Isoc, IMF, SynStars, lnlike_2p)
+                     BinSimple, Hist2Point4CMD,
+                     Hist2Hist4CMD, Isoc, IMF, SynStars, lnlike_2p)
 from starcat.test import likelihood_test
 
 
@@ -20,7 +20,7 @@ def test_randomness(theta, n_stars, step, times, likelihoodfunc):
     print(f"calculate lnlike values in total : {times} times")
     parsec = Parsec()
     isoc = Isoc(parsec)
-    imf = IMF('kroupa01')
+    imf = IMF('chabrier03')
     binmethod = BinSimple()
 
     photerr3 = GaiaEDR3('parsec', med_nobs3)
@@ -52,9 +52,9 @@ theta2 = 7.95, 0.03, 0.35, 5.55
 n_stars = 10000
 step = 0.05, 0.01
 times = 2000
-bins = 50
-h2h = Hist2Hist('parsec', 'gaiaEDR3', bins)
-h2p = Hist2Point('parsec', 'gaiaEDR3', bins)
+bins = 30
+h2h = Hist2Hist4CMD('parsec', 'gaiaEDR3', bins)
+h2p = Hist2Point4CMD('parsec', 'gaiaEDR3', bins)
 
 lnlike_rand = pd.DataFrame(index=range(2000), columns=['t1_h2h', 't1_h2p', 't2_h2h', 't2_h2p'])
 
@@ -66,7 +66,10 @@ lnlike_rand['t2_h2p'] = test_randomness(theta2, n_stars, step, times, h2p)
 
 lnlike_rand.to_csv('/home/shenyueyue/Projects/starcat/test_data/lnlike_rand.csv', index=False)
 
-sample_obs, med_nobs = read_sample_obs('melotte_22_edr3', 'gaiaEDR3')
+sample_obs, med_nobs = read_sample_obs(
+    '/home/shenyueyue/Projects/starcat/test_data/Cantat_2020/melotte_22_edr3.csv',
+    'gaiaEDR3'
+)
 # !NOTE Gmag range
 sample_obs = sample_obs[sample_obs['Gmag'] < 10]
 
@@ -77,11 +80,11 @@ n_stars = 10000
 # instantiate methods
 parsec = Parsec()
 isoc = Isoc(parsec)
-imf = IMF('kroupa01')
+imf = IMF('chabrier03')
 binmethod = BinSimple()
 photerr = GaiaEDR3('parsec', med_nobs)
 # NOTE! changeable, Hist2Hist or Hist2Point
-likelihoodfunc = Hist2Hist('parsec', 'gaiaEDR3', 50)
+likelihoodfunc = Hist2Point4CMD('parsec', 'gaiaEDR3', 30)
 synstars = SynStars('parsec', 'gaiaEDR3', imf, n_stars, binmethod, photerr)
 
 # from bulkload_isocs.py

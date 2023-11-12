@@ -119,7 +119,7 @@ class Parsec(IsocModel):
 
         elif os.path.exists(isoc_path) is False or EOFE_flag is False:
             isochrone = pd.DataFrame([])
-            max_attempt = 20
+            max_attempt = 5
             attempt_time = 0
             while isochrone.empty and attempt_time <= max_attempt:
                 c = CMD()

@@ -85,7 +85,7 @@ class SynStars(object):
         # ?inspired by batch rejection sampling
         samples = pd.DataFrame()
         accepted = 0
-        batch_size = n_stars
+        batch_size = int(n_stars * 10)
 
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method

@@ -17,13 +17,13 @@ class IMF(object):
             optional, 'chabrier03' , 'kroupa01' , 'salpeter55'
         """
         self.type = type
-        if self.type == 'kroupa01':
-            # np.where(condition, x, y) if condition==True:x    else:y
-            self.imf = lambda x: np.where(x < 0.5, 2 * x ** -1.3, x ** -2.3)
-        elif self.type == 'salpeter55':
-            self.imf = lambda x: x ** -2.35
-        elif self.type == 'chabrier':
-            self.imf = lambda x: np.where(x < 1.0, x ** -1.55, x ** -2.7)
+        # if self.type == 'kroupa01':
+        #     # np.where(condition, x, y) if condition==True:x    else:y
+        #     self.imf = lambda x: np.where(x < 0.5, 2 * x ** -1.3, x ** -2.3)
+        # elif self.type == 'salpeter55':
+        #     self.imf = lambda x: x ** -2.35
+        # elif self.type == 'chabrier':
+        #     self.imf = lambda x: np.where(x < 1.0, x ** -1.55, x ** -2.7)
 
     # def pdf_imf(self, m_i, mass_min, mass_max):
     #     mask = (m_i >= mass_min) & (m_i <= mass_max)

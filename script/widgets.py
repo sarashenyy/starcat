@@ -2,15 +2,16 @@ import pandas as pd
 
 from starcat import (Parsec, Isoc, IMF, config,
                      BinSimple,
-                     GaiaEDR3, MagError,
+                     MagError,
                      SynStars
                      )
+from starcat.photerr import GaiaEDR3
 
 
 def read_sample_obs(filename, photsys):
     usecols = ['Gmag', 'BPmag', 'RPmag', 'phot_g_n_obs', 'phot_bp_n_obs', 'phot_rp_n_obs']
     sample = pd.read_csv(
-        f'/home/shenyueyue/Projects/starcat/test_data/{filename}.csv',
+        f'{filename}',
         usecols=usecols
     )
     sample = sample.dropna().reset_index(drop=True)
@@ -21,8 +22,8 @@ def read_sample_obs(filename, photsys):
     return sample, nobs
 
 
-def get_sample_syn(photsyn, n_stars):
-    sample_obs3, med_nobs3 = read_sample_obs('melotte_22_edr3', 'gaiaEDR3')
+def get_sample_syn(filename, photsyn, n_stars):
+    sample_obs3, med_nobs3 = read_sample_obs(filename, 'gaiaEDR3')
     theta = 7.89, 0.032, 0.35, 5.55
     step = 0.01, 0.01
     # !NOTE n_stars
