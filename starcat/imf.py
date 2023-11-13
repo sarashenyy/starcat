@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scipy import integrate
-from scipy.interpolate import interpolate
 
 from .logger import log_time
 
@@ -33,6 +32,7 @@ class IMF(object):
     def plot_imf(mass_min, mass_max, n_stars):
         mass = pd.DataFrame(columns=['chabrier03', 'kroupa01', 'salpeter55'], index=range(n_stars))
         mass_int = np.flip(np.logspace(np.log10(mass_min), np.log10(mass_max), 1000), axis=0)
+        random_values = np.random.rand(n_stars)
         for i in range(3):
             if i == 0:
                 imf_val = IMF.chabrier03(mass_int)
@@ -42,17 +42,20 @@ class IMF(object):
                 imf_val = IMF.salpeter55(mass_int)
             # pdf
             pdf_imf = imf_val / integrate.trapezoid(imf_val, mass_int)
-
             # cdf
             cdf_imf = integrate.cumulative_trapezoid(pdf_imf, mass_int, initial=0)
 
             # random seed
-            r = np.random.RandomState(42)
+            # r = np.random.RandomState(42)
 
             # mass_interp = interp1d(cum_imf, mass_int)
             # mass = mass_interp(r.rand(n_stars))
             # mass.iloc[:, i] = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
-            mass[mass.columns[i]] = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+
+            # using scipy.interpolate.interp1d
+            # mass[mass.columns[i]] = (interpolate.interp1d(cdf_imf, mass_int))(random_values)
+            # using np.interp
+            mass[mass.columns[i]] = np.interp(random_values, cdf_imf, mass_int)
 
         # x = np.linspace(mass_min, mass_max, 10000)
         # y = self.imf(x)a
@@ -183,11 +186,17 @@ class IMF(object):
         # mass_interp = interp1d(cum_imf, mass_int)
         # mass = mass_interp(r.rand(n_stars))
         # r.rand()  random samples from a uniform distribution over [0, 1)
+
         if seed is not None:
             # random seed
             r = np.random.RandomState(seed)
-            mass = (interpolate.interp1d(cdf_imf, mass_int))(r.rand(n_stars))
+            random_values = r.rand(n_stars)
         else:
             random_values = np.random.rand(n_stars)
-            mass = (interpolate.interp1d(cdf_imf, mass_int))(random_values)
+        # using scipy.interpolate.interp1d()
+        # mass = (interpolate.interp1d(cdf_imf, mass_int))(random_values)
+        # using np.interp(x,xp,fp,left,right)
+        # xp must be increasing : np.all(np.diff(xp)>0)
+        # np.all(np.diff(cdf_imf)>0)
+        mass = np.interp(random_values, cdf_imf, mass_int)
         return mass
