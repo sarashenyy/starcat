@@ -10,6 +10,7 @@ from .logger import log_time
 
 class BinMethod(ABC):
     @abstractmethod
+    @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -112,7 +113,7 @@ class BinSimple(BinMethod):
 
 class BinMRD(BinMethod):
     """
-    ! WRONG!! WATING FOR DEBUG!!
+    TODO: WRONG!! WATING FOR DEBUG!!
     add condition: q > 0.09/primass
     sample secondary mass from distribution q^gamma(default gamma=0)
     """
@@ -214,6 +215,7 @@ def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
     return sample
 
 
+@log_time
 def add_companion_mag(sample, isoc, model, photsyn):
     """
     Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]

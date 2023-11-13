@@ -10,7 +10,6 @@ from .magerr import MagError
 
 class Photerr(ABC):
     @abstractmethod
-    @log_time
     def add_syn_photerr(self, sample_syn, **kwargs):
         """
 
@@ -44,6 +43,7 @@ class CSSTsim(Photerr):
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
 
+    @log_time
     def add_syn_photerr(self, sample_syn, ex_time=150, ex_num=1):
         """
 
@@ -91,6 +91,7 @@ class GaiaEDR3(Photerr):
         self.bands = source['bands']
         self.med_nobs = med_nobs
 
+    @log_time
     def add_syn_photerr(self, sample_syn, **kwargs):
         """
         Add synthetic photoerror to synthetic star sample.
