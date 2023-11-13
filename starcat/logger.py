@@ -1,11 +1,14 @@
 import logging
+import os
 import time
 from functools import wraps
 
+enable_logging = True
+# log_file_path = '/home/shenyueyue/Projects/starcat/log/runtime.log'  # ranku & dandelion
+log_file_path = '/Users/sara/PycharmProjects/starcat/log/runtime.log'  # local
+
 # formatter = logging.Formatter('%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s')
 runtime_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-
-enable_logging = False
 
 
 def init_logger(logger_name, formatter, log_file_name, level):
@@ -36,16 +39,32 @@ def log_time(func):
             time_logger = init_logger(
                 'time_logger',
                 runtime_formatter,
-                log_file_name='/home/shenyueyue/Projects/starcat/log/runtime.log',
+                log_file_name=log_file_path,
                 level=logging.INFO
             )
             # time_logger.info(
             #     f"{os.path.basename(func.__code__.co_filename)} {func.__name__} {run_time:.6f} s"
             # )
-            class_name = args[0].__class__.__name__  # 获取方法所属的类名
-            time_logger.info(
-                f"{class_name} {func.__name__} {run_time:.6f} s"
-            )
+            if len(args) == 0:
+                file_name = os.path.basename(func.__code__.co_filename)  # 获取函数所在的文件名
+                time_logger.info(
+                    f"{file_name} {func.__name__} {run_time:.6f} s"
+                )
+            else:
+                class_name = args[0].__class__.__name__  # 获取方法所属的类名
+                time_logger.info(
+                    f"{class_name} {func.__name__} {run_time:.6f} s"
+                )
+                if func.__name__ == '__call__':
+                    logage_log, mh_log, dist_log, Av_log, fb_log = args[1]
+                    nstars_log = args[2]
+                    acrate_log = result[1]
+                    sptime_log = result[2]
+                    time_logger.info(
+                        f'\nlogage={logage_log}, [M/H]={mh_log}, dist={dist_log}, Av={Av_log}, fb={fb_log}\n'
+                        f'number of stars={nstars_log}\n'
+                        f'accepted rate={acrate_log}, sample times={sptime_log}\n\n'
+                    )
             return result
         else:
             return func(*args, **kwargs)

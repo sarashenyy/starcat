@@ -85,7 +85,10 @@ class SynStars(object):
         # ?inspired by batch rejection sampling
         samples = pd.DataFrame()
         accepted = 0
-        batch_size = int(n_stars * 10)
+        # batch_size = int(n_stars * 10)
+        # runtime test
+        batch_size = int(n_stars)
+        test_sample_time = 0
 
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
@@ -112,15 +115,21 @@ class SynStars(object):
 
             samples = pd.concat([samples, sample_syn], ignore_index=True)
             accepted += len(sample_syn)
-            # ?dynamically adjusting rejection rate
-            rejection_rate = 1 - len(sample_syn) / batch_size
-            if rejection_rate > 0.2:
-                batch_size = int(batch_size * 1.2)
-            else:
-                batch_size = int(batch_size * 0.8)
+            # dynamically adjusting rejection rate
+            # rejection_rate = 1 - len(sample_syn) / batch_size
+            # if rejection_rate > 0.2:
+            #     batch_size = int(batch_size * 1.2)
+            # else:
+            #     batch_size = int(batch_size * 0.8)
+
+            # runtime test
+            test_sample_time += 1
 
         samples = samples.iloc[:n_stars]
-        return samples
+        # return samples
+        # runtime test
+        accepted_rate = accepted / (batch_size * test_sample_time)
+        return samples, accepted_rate, test_sample_time
 
     def define_mass(self, isoc):
         """
