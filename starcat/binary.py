@@ -2,7 +2,6 @@ import random
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.interpolate import interpolate
 
 from . import config
 from .logger import log_time
@@ -10,7 +9,6 @@ from .logger import log_time
 
 class BinMethod(ABC):
     @abstractmethod
-    @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -218,7 +216,8 @@ def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
 @log_time
 def add_companion_mag(sample, isoc, model, photsyn):
     """
-    Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
+    Add Mag for given Mass.
+    [mass_pri, mass_sec] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
 
     Parameters
     ----------
@@ -232,7 +231,8 @@ def add_companion_mag(sample, isoc, model, photsyn):
     source = config.config[model][photsyn]
     mini = source['mini']
     bands = source['bands']
-    phase = source['phase']
+    # ! NO NEEDS to interpolate using piecewise, therefore NO NEEDS to use 'phase'!
+    # phase = source['phase']
 
     # # add binaries
     # # if mass_sec != NaN, then binaries
@@ -243,44 +243,59 @@ def add_companion_mag(sample, isoc, model, photsyn):
     # sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
 
     secindex = sample.dropna(subset='mass_sec').index
+    # ! NO NEEDS to interpolate using piecewise!
     # add mag for each band
-    for band in bands:
-        # piecewise mass_mag relation
-        id_cut = phase.index('CHEB')
-        range1 = phase[0:id_cut]
-        range2 = phase[id_cut:]
+    # for band in bands:
+    #     # piecewise mass_mag relation
+    #     id_cut = phase.index('CHEB')
+    #     range1 = phase[0:id_cut]
+    #     range2 = phase[id_cut:]
+    #
+    #     mass_mag_1 = interpolate.interp1d(
+    #         isoc[isoc['phase'].isin(range1)][mini],
+    #         isoc[isoc['phase'].isin(range1)][band], fill_value='extrapolate')
+    #     # if isoc has phase up to CHEB
+    #     if isoc['phase'].isin(range2).any():
+    #         mass_mag_2 = interpolate.interp1d(
+    #             isoc[isoc['phase'].isin(range2)][mini],
+    #             isoc[isoc['phase'].isin(range2)][band], fill_value='extrapolate')
+    #         mass_cut = min(isoc[isoc['phase'].isin(range2)][mini])
+    #     # else
+    #     else:
+    #         mass_mag_2 = mass_mag_1
+    #         mass_cut = max(isoc[isoc['phase'].isin(range1)][mini])
+    #
+    #     # add mag for primary(including single) & secondary star
+    #     for m in ['pri', 'sec']:
+    #         sample.loc[sample['mass_%s' % m] < mass_cut, '%s_%s' % (band, m)] = (
+    #             mass_mag_1(sample[sample['mass_%s' % m] < mass_cut]['mass_%s' % m]))
+    #         sample.loc[sample['mass_%s' % m] >= mass_cut, '%s_%s' % (band, m)] = (
+    #             mass_mag_2(sample[sample['mass_%s' % m] >= mass_cut]['mass_%s' % m]))
+    #     # add syn mag (for binaries, syn = f(pri,sec) )
+    #     sample[band] = sample['%s_pri' % band]
+    #     sample.loc[secindex, band] = (
+    #             -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % band])
+    #                             + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % band])
+    #                             )
+    #     )
 
-        mass_mag_1 = interpolate.interp1d(
-            isoc[isoc['phase'].isin(range1)][mini],
-            isoc[isoc['phase'].isin(range1)][band], fill_value='extrapolate')
-        # if isoc has phase up to CHEB
-        if isoc['phase'].isin(range2).any():
-            mass_mag_2 = interpolate.interp1d(
-                isoc[isoc['phase'].isin(range2)][mini],
-                isoc[isoc['phase'].isin(range2)][band], fill_value='extrapolate')
-            mass_cut = min(isoc[isoc['phase'].isin(range2)][mini])
-        # else
-        else:
-            mass_mag_2 = mass_mag_1
-            mass_cut = max(isoc[isoc['phase'].isin(range1)][mini])
-
-        # add mag for primary(including single) & secondary star
-        for m in ['pri', 'sec']:
-            sample.loc[sample['mass_%s' % m] < mass_cut, '%s_%s' % (band, m)] = (
-                mass_mag_1(sample[sample['mass_%s' % m] < mass_cut]['mass_%s' % m]))
-            sample.loc[sample['mass_%s' % m] >= mass_cut, '%s_%s' % (band, m)] = (
-                mass_mag_2(sample[sample['mass_%s' % m] >= mass_cut]['mass_%s' % m]))
+    # add mag for each band, without using piecewise
+    for _ in bands:
+        # ! make sure np.all(np.diff(isoc[mini])>0) is True!
+        sample.loc[:, '%s_pri' % _] = np.interp(sample['mass_pri'], isoc[mini], isoc[_])
+        sample.loc[:, '%s_sec' % _] = np.interp(sample['mass_sec'], isoc[mini], isoc[_])
         # add syn mag (for binaries, syn = f(pri,sec) )
-        sample[band] = sample['%s_pri' % band]
-        sample.loc[secindex, band] = (
-                -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % band])
-                                + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % band])
+        sample[_] = sample['%s_pri' % _]
+        sample.loc[secindex, _] = (
+                -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % _])
+                                + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % _])
                                 )
         )
     return sample
 
 
 def define_secmass_ms(isoc, model, photsyn):
+    # TODO: may should be discarded. otherwise should reconsider the use of 'phase'
     source = config.config[model][photsyn]
     mini = source['mini']
     # Key Point! secondary stars are all Main Sequence stars
@@ -292,34 +307,37 @@ def define_secmass_ms(isoc, model, photsyn):
 def define_secmass_simple(isoc, model, photsyn):
     source = config.config[model][photsyn]
     mini = source['mini']
-    mag = source['mag']  # list
-    mag_max = [x + 0.5 for x in source['mag_max']]  # list
+    # mag = source['mag']  # list
+    bands = source['bands']
+    band_max = [x + 0.5 for x in source['band_max']]  # list
     masssec_max = max(isoc[mini])
-    if len(mag) == 1:
-        try:
-            masssec_min = min(
-                isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
-            )
-        except ValueError:
-            print('Do not have any stars brighter than the mag range!!')
+    # if len(mag) == 1:
+    #     try:
+    #         masssec_min = min(
+    #             isoc[(isoc[mag[0]]) <= band_max[0]][mini]
+    #         )
+    #     except ValueError:
+    #         print('Do not have any stars brighter than the mag range!!')
+    #
+    # elif len(mag) > 1:
+    #     masssec_min = min(
+    #         isoc[(isoc[mag[0]]) <= band_max[0]][mini]
+    #     )
+    #     for i in range(len(mag)):
+    #         aux_min = min(
+    #             isoc[(isoc[mag[i]]) <= band_max[i]][mini]
+    #         )
+    #         if aux_min < masssec_min:
+    #             masssec_min = aux_min
+    aux_list = []
+    for i in range(len(bands)):
+        # synthetic Mini range is slightly larger than the observed for the consideration of binary and photerror
+        condition = isoc[bands[i]] <= band_max[i]
+        filtered_isoc = isoc[condition]
 
-    elif len(mag) > 1:
-        # masssec_min = min(
-        #     isoc[(isoc[mag[0]]) <= mag_max[0]][mini]
-        # )
-        # for i in range(len(mag)):
-        #     aux_min = min(
-        #         isoc[(isoc[mag[i]]) <= mag_max[i]][mini]
-        #     )
-        #     if aux_min < masssec_min:
-        #         masssec_min = aux_min
-        aux_list = []
-        for i in range(len(mag)):
-            filtered_isoc = isoc[(isoc[mag[i]]) <= mag_max[i]]
-
-            if not filtered_isoc.empty:
-                aux_min = min(filtered_isoc[mini])
-                aux_list.append(aux_min)
-        masssec_min = min(aux_list)
+        if not filtered_isoc.empty:
+            aux_min = min(filtered_isoc[mini])
+            aux_list.append(aux_min)
+    masssec_min = min(aux_list)
 
     return masssec_min, masssec_max

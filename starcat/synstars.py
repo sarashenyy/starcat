@@ -34,14 +34,14 @@ class SynStars(object):
 
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
-        self.mag_max_obs = source['mag_max']
-        self.mag_max_syn = [x + 0.5 for x in source['mag_max']]
+        self.band_max_obs = source['band_max']
+        self.band_max_syn = [x + 0.5 for x in source['band_max']]
         self.bands = source['bands']
         self.mini = source['mini']
-        self.mag = source['mag']
+        # self.mag = source['mag']
 
     @log_time
-    def __call__(self, theta, n_stars, variable_type_isoc, *args, **kwargs):
+    def __call__(self, theta, n_stars, variable_type_isoc, test=False, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -98,21 +98,28 @@ class SynStars(object):
             # !step 4: add photometry error for synthetic sample
             sample_syn = self.photerr.add_syn_photerr(sample_syn)
 
-            # !step 5: 1. discard nan&inf values primarily due to failed interpolate
-            # !        2. discard sample_syn[mag] > mag_max
-            # 1. discard nan&inf values primarily due to failed interpolate
-            columns_to_check = self.bands
-            sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
-            for column in columns_to_check:
-                sample_syn = sample_syn[~np.isinf(sample_syn[column])]
-            # 2. discard sample_syn[mag] > mag_max
-            if len(self.mag) == 1:
-                sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.mag_max_obs[0]]
-            elif len(self.mag) > 1:
-                for mag_col, mag_max_val in zip(self.mag, self.mag_max_obs):
-                    sample_syn = sample_syn[sample_syn[mag_col] <= mag_max_val]
-            sample_syn = sample_syn.reset_index(drop=True)
+            # !step 5: (deleted!) 1. discard nan&inf values primarily due to failed interpolate
+            # !        2. 只有在所有波段都暗于极限星等时才丢弃！即只有当一颗星在所有波段都不可见时才丢弃，只要这颗星在任一波段可见，则保留。
+            # !           意味着最终返回的 samples[band] 中包含暗于该波段极限星等的值
+            # # 1. discard nan&inf values primarily due to failed interpolate
+            # columns_to_check = self.bands
+            # sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
+            # for column in columns_to_check:
+            #     sample_syn = sample_syn[~np.isinf(sample_syn[column])]
+            # # 2. discard sample_syn[mag] > band_max
+            # if len(self.mag) == 1:
+            #     sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.band_max_obs[0]]
+            # elif len(self.mag) > 1:
+            #     for mag_col, band_max_val in zip(self.mag, self.band_max_obs):
+            #         sample_syn = sample_syn[sample_syn[mag_col] <= band_max_val]
 
+            # condition为所有波段都暗于极限星等的星，将之丢弃
+            condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+            for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                cond = sample_syn[b] > b_max
+                condition = condition & cond
+
+            sample_syn = sample_syn[~condition].reset_index(drop=True)
             samples = pd.concat([samples, sample_syn], ignore_index=True)
             accepted += len(sample_syn)
             # dynamically adjusting rejection rate
@@ -129,7 +136,10 @@ class SynStars(object):
         # return samples
         # runtime test
         accepted_rate = accepted / (batch_size * test_sample_time)
-        return samples, accepted_rate, test_sample_time
+        if test is True:
+            return samples, accepted_rate, test_sample_time
+        else:
+            return samples
 
     def define_mass(self, isoc):
         """
@@ -138,35 +148,38 @@ class SynStars(object):
         ----------
         isoc : pd.DataFrame
         dm : float
+
         """
         mass_max = max(isoc[self.mini])
-        if len(self.mag) == 1:
-            try:
-                mass_min = min(
-                    isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
-                )
-            except ValueError:
-                print('Do not have any stars brighter than the mag range!!')
+        # if len(self.mag) == 1:
+        #     try:
+        #         mass_min = min(
+        #             isoc[(isoc[self.mag[0]]) <= self.band_max_syn[0]][self.mini]
+        #         )
+        #     except ValueError:
+        #         print('Do not have any stars brighter than the mag range!!')
 
-        elif len(self.mag) > 1:
-            # mass_min = min(
-            #     isoc[(isoc[self.mag[0]]) <= self.mag_max_syn[0]][self.mini]
-            # )
-            # for i in range(len(self.mag)):
-            #     aux_min = min(
-            #         isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]][self.mini]
-            #     )
-            #     if aux_min < mass_min:
-            #         mass_min = aux_min
+        # elif len(self.mag) > 1:
+        #     mass_min = min(
+        #         isoc[(isoc[self.mag[0]]) <= self.band_max_syn[0]][self.mini]
+        #     )
+        #     for i in range(len(self.mag)):
+        #         aux_min = min(
+        #             isoc[(isoc[self.mag[i]]) <= self.band_max_syn[i]][self.mini]
+        #         )
+        #         if aux_min < mass_min:
+        #             mass_min = aux_min
 
-            aux_list = []
-            for i in range(len(self.mag)):
-                filtered_isoc = isoc[(isoc[self.mag[i]]) <= self.mag_max_syn[i]]
+        aux_list = []
+        for i in range(len(self.bands)):
+            # synthetic Mini range is slightly larger than the observed for the consideration of binary and photerror
+            condition = isoc[self.bands[i]] <= self.band_max_syn[i]
+            filtered_isoc = isoc[condition]
 
-                if not filtered_isoc.empty:
-                    aux_min = min(filtered_isoc[self.mini])
-                    aux_list.append(aux_min)
-            mass_min = min(aux_list)
+            if not filtered_isoc.empty:
+                aux_min = min(filtered_isoc[self.mini])
+                aux_list.append(aux_min)
+        mass_min = min(aux_list)
 
         return mass_min, mass_max
 
