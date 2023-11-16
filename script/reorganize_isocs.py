@@ -1,4 +1,4 @@
-# this is a script for reorganize the .dat file download from http://stev.oapd.inaf.it/cgi-bin/cmd_3.7
+# this is a script for reorganize the .dat file download from http://stev.oapd.inaf.it/cgi-bin/cmd
 import os
 
 import joblib
@@ -7,7 +7,7 @@ import pandas as pd
 data_dir = '/Users/sara/PycharmProjects/starcat/data/'
 isoc_dir = 'isochrones/parsec/CSST/'
 
-# download source .dat file from http://stev.oapd.inaf.it/cgi-bin/cmd_3.7 by hand
+# download source .dat file from http://stev.oapd.inaf.it/cgi-bin/cmd by hand
 source_file = os.listdir(data_dir + isoc_dir + 'source/')
 
 count = 0
