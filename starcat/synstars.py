@@ -52,7 +52,7 @@ class SynStars(object):
         Parameters
         ----------
         theta : tuple
-            logage, mh, dist, Av, fb
+            logage, mh, dm, Av, fb
         n_stars : int
         step : tuple
             logage_step, mh_step
@@ -64,7 +64,7 @@ class SynStars(object):
             logage_step
             mh_step
         """
-        logage, mh, dist, Av, fb = theta
+        logage, mh, dm, Av, fb = theta
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
         # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
@@ -79,8 +79,8 @@ class SynStars(object):
         else:
             print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
 
-        # !step 2: add distance and Av, make observed iso
-        isoc_new = self.get_observe_isoc(isoc, dist, Av)
+        # !step 2: add distance modulus and Av, make observed iso
+        isoc_new = self.get_observe_isoc(isoc, dm, Av)
 
         # ?inspired by batch rejection sampling
         samples = pd.DataFrame()
@@ -210,7 +210,7 @@ class SynStars(object):
         )
         return sample_syn
 
-    def get_observe_isoc(self, isoc, dist, Av):
+    def get_observe_isoc(self, isoc, dm, Av):
         columns = isoc.columns
         isoc_new = pd.DataFrame(columns=columns)
         col_notin_bands = list(set(columns) - set(self.bands))
@@ -219,7 +219,7 @@ class SynStars(object):
             # get extinction coeficients
             l, w, c = ext_coefs(_)
             #    sample_syn[_] += dm
-            isoc_new[_] = isoc[_] + 5. * np.log10(dist * 1.e3) - 5. + c * Av
+            isoc_new[_] = isoc[_] + dm + c * Av
         return isoc_new
 
 
