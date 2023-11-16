@@ -1,47 +1,78 @@
 # data directory path, including isochrone path...
 # stored on the server dandelion
-data_dir = '/home/shenyueyue/Projects/starcat/data/'
+
+# NOTE: the data type in the list must be consistent in toml file,
+# ex. wrong example: example_wrong = [2, 2.4, 2.6]
+#     correct : example_correct = [2.0, 2.4, 2.6]
+
+# data_dir = '/home/shenyueyue/Projects/starcat/data/' # remote
+data_dir = '/Users/sara/PycharmProjects/starcat/data/' # local
 
 [parsec.gaiaDR2]
 isoc_dir = 'isochrones/parsec/gaiaDR2/'
+# column name in parsec
 bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
-bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
+# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
+bands = ['G', 'BP', 'RP'] # syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
+band_max = [20.0, 20.0, 20.0]
 # if there is more than one color and more than one mag,
 # change mag from str to list and be careful for the place where used it !!
 mag = ['G']
 color = [['BP', 'RP']]
-mag_max = [20]
 mini = 'Mini'
 mass = 'Mass'
-label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
-phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
+#label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
+#phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 [parsec.gaiaEDR3]
 isoc_dir = 'isochrones/parsec/gaiaEDR3/'
+# column name in parsec
 bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
+mini = 'Mini'
+# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
+band_max = [20.0, 20.0, 20.0]
+# given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+extinction_coefs = [
+    [6390.21, 4416.0, 0.83627], # G
+    [5182.58, 2617.0, 1.08337], # BP
+    [7825.08, 2863.0, 0.63439]   # RP
+]
+
 mag = ['G']
 color = [['BP', 'RP']]
-mag_max = [20]
-mini = 'Mini'
 mass = 'Mass'
-label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
-phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
+#label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
+#phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 [parsec.CSST]
 isoc_dir = 'isochrones/parsec/CSST/'
+# column name in parsec
 bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
+mini = 'Mini'
+# mass = 'Mass'
+# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
 bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
 bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
+# band_max = instrument limit + 0.5(consider faint binary) ;
+# instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
+band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
+# given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+extinction_coefs = [
+    [2887.74, 609.0, 1.88462], # NUV
+    [3610.40, 759.0, 1.55299], # u
+    [4811.96, 1357.0, 1.19715], # g
+    [6185.81, 1435.0, 0.86630], # r
+    [7641.61, 1536.0, 0.66204], # i
+    [9043.96, 1108.0, 0.47508], # z
+    [9660.53, 633.0, 0.42710]   # y
+]
+
 mag = ['u', 'g', 'r', 'i', 'z', 'y']
 color = [['NUV', 'u'], ['u', 'g'], ['g', 'r'], ['r', 'i'], ['i', 'z'], ['z', 'y']]
-# mag_max = instrument limit + 0.5(consider faint binary) ;
-# instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
-mag_max = [25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
-mini = 'Mini'
 mass = 'Mass'
-label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
-phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
+#label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
+#phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 #[mist.gaiadr3]
 #

@@ -38,6 +38,7 @@ class SynStars(object):
         self.band_max_syn = [x + 0.5 for x in source['band_max']]
         self.bands = source['bands']
         self.mini = source['mini']
+        self.ext_coefs = source['extinction_coefs']
         # self.mag = source['mag']
 
     @log_time
@@ -215,32 +216,31 @@ class SynStars(object):
         isoc_new = pd.DataFrame(columns=columns)
         col_notin_bands = list(set(columns) - set(self.bands))
         isoc_new[col_notin_bands] = isoc[col_notin_bands]
-        for _ in self.bands:
+        for _ in range(len(self.bands)):
             # get extinction coeficients
-            l, w, c = ext_coefs(_)
+            l, w, c = self.ext_coefs[_]
             #    sample_syn[_] += dm
-            isoc_new[_] = isoc[_] + dm + c * Av
+            isoc_new[self.bands[_]] = isoc[self.bands[_]] + dm + c * Av
         return isoc_new
 
-
-def ext_coefs(band):
-    """
-    From PARSEC CMD
-
-    Parameters
-    ----------
-    band: list
-
-    Returns
-    -------
-    λeff (Å), ωeff (Å), Aλ/AV
-    """
-    sys_param = {'NUV': [2887.74, 609, 1.88462],
-                 'u': [3610.40, 759, 1.55299],
-                 'g': [4811.96, 1357, 1.19715],
-                 'r': [6185.81, 1435, 0.86630],
-                 'i': [7641.61, 1536, 0.66204],
-                 'z': [9043.96, 1108, 0.47508],
-                 'y': [9660.53, 633, 0.42710]}
-
-    return sys_param[band]
+# def coefs_CSST(band):
+#     """
+#     From PARSEC CMD
+#
+#     Parameters
+#     ----------
+#     band: list
+#
+#     Returns
+#     -------
+#     λeff (Å), ωeff (Å), Aλ/AV
+#     """
+#     sys_param = {'NUV': [2887.74, 609, 1.88462],
+#                  'u': [3610.40, 759, 1.55299],
+#                  'g': [4811.96, 1357, 1.19715],
+#                  'r': [6185.81, 1435, 0.86630],
+#                  'i': [7641.61, 1536, 0.66204],
+#                  'z': [9043.96, 1108, 0.47508],
+#                  'y': [9660.53, 633, 0.42710]}
+#
+#     return sys_param[band]
