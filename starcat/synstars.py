@@ -88,8 +88,9 @@ class SynStars(object):
         accepted = 0
         # batch_size = int(n_stars * 10)
         # runtime test
-        batch_size = int(n_stars)
+        batch_size = int(n_stars * 1.2)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
+        total_size = batch_size
 
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
@@ -123,7 +124,13 @@ class SynStars(object):
             sample_syn = sample_syn[~condition].reset_index(drop=True)
             samples = pd.concat([samples, sample_syn], ignore_index=True)
             accepted += len(sample_syn)
-            # dynamically adjusting rejection rate
+
+            # dynamically adjusting batch_size
+            if accepted < n_stars:
+                remain = n_stars - accepted
+                batch_size = int(remain * 1.2)
+                total_size += batch_size
+            test_sample_time += 1
             # rejection_rate = 1 - len(sample_syn) / batch_size
             # if rejection_rate > 0.2:
             #     batch_size = int(batch_size * 1.2)
@@ -131,14 +138,13 @@ class SynStars(object):
             #     batch_size = int(batch_size * 0.8)
 
             # runtime test
-            test_sample_time += 1
 
         samples = samples.iloc[:n_stars]
         # return samples
         # runtime test
-        accepted_rate = accepted / (batch_size * test_sample_time)
+        accepted_rate = accepted / total_size
         if test is True:
-            return samples, accepted_rate, test_sample_time
+            return samples, accepted_rate, total_size, test_sample_time
         else:
             return samples
 

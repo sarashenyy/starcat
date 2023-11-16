@@ -55,16 +55,20 @@ def log_time(func):
                 time_logger.info(
                     f"{class_name} {func.__name__} {run_time:.6f} s"
                 )
+
                 if func.__name__ == '__call__':
-                    logage_log, mh_log, dm_log, Av_log, fb_log = args[1]
-                    nstars_log = args[2]
-                    acrate_log = result[1]
-                    sptime_log = result[2]
-                    time_logger.info(
-                        f'\nlogage={logage_log}, [M/H]={mh_log}, DM={dm_log}, Av={Av_log}, fb={fb_log}\n'
-                        f'number of stars={nstars_log}\n'
-                        f'accepted rate={acrate_log}, sample times={sptime_log}\n\n'
-                    )
+                    test_log = args[4]
+                    if test_log is True:
+                        logage_log, mh_log, dm_log, Av_log, fb_log = args[1]
+                        nstars_log = args[2]
+                        acrate_log = result[1]
+                        total_log = result[2]
+                        sptime_log = result[3]
+                        time_logger.info(
+                            f'\nlogage={logage_log}, [M/H]={mh_log}, DM={dm_log}, Av={Av_log}, fb={fb_log}\n'
+                            f'number of stars={nstars_log}, total sample={total_log}\n'
+                            f'accepted rate={acrate_log}, sample times={sptime_log}\n\n'
+                        )
             return result
         else:
             return func(*args, **kwargs)
