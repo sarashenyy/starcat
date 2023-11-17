@@ -57,7 +57,7 @@ def log_time(func):
                 )
 
                 if func.__name__ == '__call__':
-                    test_log = args[4]
+                    test_log = kwargs.get('test')
                     if test_log is True:
                         logage_log, mh_log, dm_log, Av_log, fb_log = args[1]
                         nstars_log = args[2]
