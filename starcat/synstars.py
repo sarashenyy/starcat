@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.gridspec import GridSpec
 
 from . import config, IMF
 from .isoc import Isoc
@@ -143,8 +145,55 @@ class SynStars(object):
         # return samples
         # runtime test
         accepted_rate = accepted / total_size
+
+        # test the process
         if test is True:
-            return samples, accepted_rate, total_size, test_sample_time
+            def _visualize_CSST_():
+                fig = plt.figure(figsize=(10, 7.5))
+                gs1 = GridSpec(2, 3, figure=fig, wspace=0.4, hspace=0.3)
+                for i in range(len(self.bands) - 1):
+                    ax = fig.add_subplot(gs1[int(i / 3), int(i % 3)])
+                    c = isoc[self.bands[i]] - isoc[self.bands[i + 1]]
+                    m = isoc[self.bands[i + 1]]
+                    ax.plot(c, m, '-o', markersize=3)
+                    ax.invert_yaxis()
+                    ax.set_xlabel(f'{self.bands[i]}-{self.bands[i + 1]}')
+                    ax.set_ylabel(f'{self.bands[i + 1]}')
+                fig.suptitle(f'log(age)={logage}, [M/H]={mh}')
+                fig.subplots_adjust(top=0.93)
+                fig.show()
+
+                fig = plt.figure(figsize=(10.5, 11))
+                gs2 = GridSpec(2, 3, figure=fig, wspace=0.3, hspace=0.2)
+                for i in range(len(self.bands) - 1):
+                    _bin = samples['mass_sec'].isna()
+                    ax = fig.add_subplot(gs2[int(i / 3), int(i % 3)])
+                    _c = isoc_new[self.bands[i]] - isoc_new[self.bands[i + 1]]
+                    _m = isoc_new[self.bands[i + 1]]
+                    x = samples[self.bands[i]] - samples[self.bands[i + 1]]
+                    y = samples[self.bands[i + 1]]
+                    _uns = y > self.band_max_obs[i + 1]
+                    ax.plot(_c, _m, '-', c='k', linewidth=0.5)
+                    # stars that can be seen
+                    ax.scatter(x[_bin & ~_uns], y[_bin & ~_uns], label='binary', s=3)
+                    ax.scatter(x[~_bin & ~_uns], y[~_bin & ~_uns], label='single', s=3)
+                    # stars that can NOT be seen
+                    ax.scatter(x[_bin & _uns], y[_bin & _uns], color='grey', s=3)
+                    ax.scatter(x[~_bin & _uns], y[~_bin & _uns], color='grey', s=3)
+                    ax.text(0.1, 0.93, f'{len(x[~_uns])}/{int(n_stars)}', transform=ax.transAxes)
+                    ax.set_ylim(min(y) - 0.5, max(y) + 0.5)
+                    ax.set_xlim(-3, 5)
+                    ax.invert_yaxis()
+                    ax.set_xlabel(f'{self.bands[i]}-{self.bands[i + 1]}')
+                    ax.set_ylabel(f'{self.bands[i + 1]}')
+                fig.suptitle(f'DM={dm}, Av={Av}, fb={fb}')
+                fig.subplots_adjust(top=0.95)
+                fig.show()
+
+            if self.photsys == 'CSST':
+                _visualize_CSST_()
+            return samples, accepted_rate, total_size, test_sample_time, isoc, isoc_new
+
         else:
             return samples
 
