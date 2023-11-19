@@ -20,7 +20,7 @@ class SynStars(object):
         model : str
             'parsec' or 'MIST'
         photsys : str
-            'gaiaDR2' or 'daiaEDR3'
+            'CSST' or 'daiaDR3'
         imf : starcat.IMF
         binmethod :
             subclass of starcat.BinMethod: BinMS(), BinSimple()
@@ -117,11 +117,19 @@ class SynStars(object):
             #     for mag_col, band_max_val in zip(self.mag, self.band_max_obs):
             #         sample_syn = sample_syn[sample_syn[mag_col] <= band_max_val]
 
-            # condition为所有波段都暗于极限星等的星，将之丢弃
-            condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
-            for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
-                cond = sample_syn[b] > b_max
-                condition = condition & cond
+            if self.photsys == 'CSST':
+                # condition为所有波段都暗于极限星等的星，将之丢弃
+                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                    cond = sample_syn[b] > b_max
+                    condition = condition & cond
+
+            elif self.photsys == 'gaiaDR3':
+                # condition为只要有一个波段暗于极限星等，就把它丢弃
+                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                    cond = sample_syn[b] > b_max
+                    condition = condition | cond
 
             sample_syn = sample_syn[~condition].reset_index(drop=True)
             samples = pd.concat([samples, sample_syn], ignore_index=True)
@@ -166,7 +174,7 @@ class SynStars(object):
                 fig = plt.figure(figsize=(10.5, 11))
                 gs2 = GridSpec(2, 3, figure=fig, wspace=0.3, hspace=0.2)
                 for i in range(len(self.bands) - 1):
-                    _bin = samples['mass_sec'].isna()
+                    _bin = samples['mass_sec'].notna()
                     ax = fig.add_subplot(gs2[int(i / 3), int(i % 3)])
                     _c = isoc_new[self.bands[i]] - isoc_new[self.bands[i + 1]]
                     _m = isoc_new[self.bands[i + 1]]
@@ -190,8 +198,44 @@ class SynStars(object):
                 fig.subplots_adjust(top=0.95)
                 fig.show()
 
+            def _visualize_GAIA_():
+                fig = plt.figure(figsize=(13, 5))
+                gs = GridSpec(1, 3, figure=fig, hspace=0.15)
+                c = samples['BP'] - samples['RP']
+                m = samples['G']
+                c_noe = (samples['BP'] - samples['BP_err']) - (samples['RP'] - samples['RP_err'])
+                m_noe = samples['G'] - samples['G_err']
+                bin = samples['mass_sec'].notna()
+
+                ax3 = fig.add_subplot(gs[0, 2])
+                ax3.scatter(c[bin], m[bin], label='binary', s=3)
+                ax3.scatter(c[~bin], m[~bin], label='single', s=3)
+                ax3.set_xlabel('BP-RP')
+                ax3.invert_yaxis()
+
+                ax2 = fig.add_subplot(gs[0, 1])
+                ax2.scatter(c_noe[bin], m_noe[bin], label='binary', s=3)
+                ax2.scatter(c_noe[~bin], m_noe[~bin], label='single', s=3)
+                ax2.legend()
+                ax2.set_xlabel('BP-RP')
+                ax2.invert_yaxis()
+
+                ax1 = fig.add_subplot(gs[0, 0])
+                ax1.plot(isoc_new['BP'] - isoc_new['RP'], isoc_new['G'], '-o', markersize=3)
+                ax1.set_xlabel('BP-RP')
+                ax1.set_ylabel('G')
+                ax1.invert_yaxis()
+                ax1.set_ylim(ax3.get_ylim())
+                ax1.set_xlim(ax3.get_xlim())
+
+                fig.suptitle(f'logage={logage},[M/H]={mh},DM={dm}, Av={Av}, fb={fb}')
+                fig.subplots_adjust(top=0.92)
+                fig.show()
+
             if self.photsys == 'CSST':
                 _visualize_CSST_()
+            elif self.photsys == 'gaiaDR3':
+                _visualize_GAIA_()
             return samples, accepted_rate, total_size, test_sample_time, isoc, isoc_new
 
         else:
