@@ -4,8 +4,9 @@ import os
 import joblib
 import pandas as pd
 
+photsys = 'gaia'  # 'CSST'
 data_dir = '/Users/sara/PycharmProjects/starcat/data/'
-isoc_dir = 'isochrones/parsec/CSST/'
+isoc_dir = 'isochrones/parsec/gaiaDR3/'
 
 # download source .dat file from http://stev.oapd.inaf.it/cgi-bin/cmd by hand
 source_file = os.listdir(data_dir + isoc_dir + 'source/')
@@ -23,13 +24,19 @@ for i, filename in enumerate(source_file):
         if line.startswith('# Zini'):
             aux = j
             data_start.append(aux)
-
-    columns = [
-        'Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label',
-        'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode',
-        'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'mbolmag', 'NUVmag',
-        'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag'
-    ]
+    if photsys == 'CSST':
+        columns = [
+            'Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label',
+            'McoreTP', 'C_O', 'period0', 'period1', 'period2', 'period3', 'period4', 'pmode',
+            'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn', 'Xo', 'Cexcess', 'Z', 'mbolmag', 'NUVmag',
+            'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag'
+        ]
+    elif photsys == 'gaia':
+        columns = [
+            'Zini', 'MH', 'logAge', 'Mini', 'int_IMF', 'Mass', 'logL', 'logTe', 'logg', 'label', 'McoreTP', 'C_O',
+            'period0', 'period1', 'period2', 'period3', 'period4', 'pmode', 'Mloss', 'tau1m', 'X', 'Y', 'Xc', 'Xn',
+            'Xo', 'Cexcess', 'Z', 'mbolmag', 'Gmag', 'G_BPmag', 'G_RPmag'
+        ]
     # save data to pd.df, drop the last line of each file
     print(f'start to reorganize No.{i} source file, will generate {len(data_start) - 1} files(.joblib) in total.')
     for t in range(len(data_start) - 1):
