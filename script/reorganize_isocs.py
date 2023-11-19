@@ -53,3 +53,13 @@ for i, filename in enumerate(source_file):
         if t % 10 == 0:
             print(f'No.{i} source file, {t}/{len(data_start) - 1}')
 print(f'Generated {count} files(.joblib) in total.')
+
+# if MH is -0.0 in files
+# import os
+# folder_path = '/Users/sara/PycharmProjects/starcat/data/isochrones/parsec/gaiaDR3/'  # 替换为你的文件夹路径
+# for filename in os.listdir(folder_path):
+#     if '-0.00' in filename:
+#         new_filename = filename.replace('-0.00', '+0.00')
+#         old_filepath = os.path.join(folder_path, filename)
+#         new_filepath = os.path.join(folder_path, new_filename)
+#         os.rename(old_filepath, new_filepath)
