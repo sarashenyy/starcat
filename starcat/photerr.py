@@ -73,7 +73,7 @@ class CSSTsim(Photerr):
         return sample_syn
 
 
-class GaiaEDR3(Photerr):
+class GaiaDR3(Photerr):
     def __init__(self, model, med_nobs):
         """
 
@@ -84,7 +84,7 @@ class GaiaEDR3(Photerr):
         med_nobs : list[int]
             Median observation number of each band. [G, BP, RP]
         """
-        self.photsys = 'gaiaEDR3'
+        self.photsys = 'gaiaDR3'
         self.model = model
 
         source = config.config[self.model][self.photsys]
