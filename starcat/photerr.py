@@ -128,3 +128,46 @@ class GaiaDR3(Photerr):
             g_err, bp_err, rp_err
         )
         return sample_syn
+
+
+class Individual(Photerr):
+    def __init__(self, model, photsys, observation):
+        """
+
+        Parameters
+        ----------
+        model
+        photsys
+        observation : pd.DataFrame
+            observation data
+        """
+        # model details
+        source = config.config[model][photsys]
+        self.bands = source['bands']
+
+        # observation details
+        o_source = config.config['observation']
+        self.o_bands = o_source['bands']
+        self.oe_bands = o_source['bands_err']
+        # self.prob = o_source['Prob']
+
+        # get mag-magerr relation(data points) from observation
+        self.mag_magerr = []
+        # o_sample = observation[observation[self.prob]>0.7]
+        o_sample = observation
+        for i in range(len(self.o_bands)):
+            aux = o_sample.loc[:, [self.o_bands[i], self.oe_bands[i]]]
+            aux = aux.sort_values(by=self.o_bands[i], ascending=True)
+            self.mag_magerr.append(aux)
+
+    def add_syn_photerr(self, sample_syn, **kwargs):
+        num = len(sample_syn)
+        for j in range(len(self.bands)):
+            xp = self.mag_magerr[j][self.o_bands[j]]
+            fp = self.mag_magerr[j][self.oe_bands[j]]
+            mag_syn = np.array(sample_syn[self.bands[j]])
+            mag_err = np.interp(mag_syn, xp, fp)
+            standard = np.random.normal(0, 1, size=num)
+            sample_syn[self.bands[j]] = mag_syn + mag_err * standard
+            sample_syn['%s_err' % self.bands[j]] = mag_err * standard
+        return sample_syn
