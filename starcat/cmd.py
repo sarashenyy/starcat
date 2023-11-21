@@ -6,12 +6,13 @@ from . import config
 
 class CMD(object):
     @staticmethod
-    def extract_cmd(sample, model, photsys):
+    def extract_cmd(sample, model, photsys, synthetic):
         """
         Extract color and mag from sample.
 
         Parameters
         ----------
+        synthetic
         sample
         model : str
             Ioscmodel
@@ -22,7 +23,11 @@ class CMD(object):
         -------
 
         """
-        source = config.config[model][photsys]
+        if synthetic is True:
+            source = config.config[model][photsys]
+        elif synthetic is False:
+            source = config.config['observation']
+
         m = sample[source['mag'][0]]
         c = sample[source['color'][0][0]] - sample[source['color'][0][1]]
         return c, m
@@ -52,8 +57,7 @@ class CMD(object):
         # c_bins = np.linspace(cstart, cend, c_bin + 1)
         # m_bins = np.linspace(mstart, mend, m_bin + 1)
         # h, x_edges, y_edges = np.histogram2d(color, mag, bins=(c_bins, m_bins))
-        hist = plt.hist2d(color, mag, bins)
-        h, x_edges, y_edges = hist[0], hist[1], hist[2]
+        h, x_edges, y_edges = np.histogram2d(color, mag, bins=bins)
         return h, x_edges, y_edges
 
     @staticmethod
@@ -66,11 +70,11 @@ class CMD(object):
         return h, x_edges, y_edges
 
     @staticmethod
-    def extract_hist2d(sample, model, photsys, bins):
+    def extract_hist2d(synthetic, sample, model, photsys, bins):
         """
         From sample extreact hist2d.
         """
-        c, m = CMD.extract_cmd(sample, model, photsys)
+        c, m = CMD.extract_cmd(sample, model, photsys, synthetic)
         # bins: int for sample_obs
         if isinstance(bins, int):
             h, x_edges, y_edges = CMD.hist2d(c, m, bins)
@@ -80,8 +84,8 @@ class CMD(object):
         return h, x_edges, y_edges
 
     @staticmethod
-    def extract_hist2d_norm(sample, model, photsys, bins):
-        c, m = CMD.extract_cmd(sample, model, photsys)
+    def extract_hist2d_norm(synthetic, sample, model, photsys, bins):
+        c, m = CMD.extract_cmd(sample, model, photsys, synthetic)
         if isinstance(bins, int):
             h, x_edges, y_edges = CMD.hist2d_norm(c, m, bins)
         # bins = (x_edges, y_edges)
@@ -91,8 +95,8 @@ class CMD(object):
         return h, x_edges, y_edges
 
     @staticmethod
-    def plot_cmd(sample, model, photsys, bins: int):
-        c, m = CMD.extract_cmd(sample, model, photsys)
+    def plot_cmd(synthetic, sample, model, photsys, bins: int):
+        c, m = CMD.extract_cmd(sample, model, photsys, synthetic)
         fig, ax = plt.subplots()
         ax.hist2d(c, m, bins, cmap='Blues')
         ax.invert_yaxis()
@@ -101,9 +105,9 @@ class CMD(object):
         fig.show()
 
     @staticmethod
-    def plot_resid(sample_obs, sample_syn, model, photsys, bins: int):
-        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, model, photsys, bins)
-        h_syn, _, _ = CMD.extract_hist2d(sample_syn, model, photsys, bins=(xe_obs, ye_obs))
+    def plot_resid(synthetic, sample_obs, sample_syn, model, photsys, bins: int):
+        h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, model, photsys, synthetic, bins)
+        h_syn, _, _ = CMD.extract_hist2d(sample_syn, model, photsys, synthetic, bins=(xe_obs, ye_obs))
         residuals = h_obs / np.sum(h_obs) - h_syn / np.sum(h_syn)
 
         # 绘制残差图

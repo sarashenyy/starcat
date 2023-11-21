@@ -31,8 +31,12 @@ class Hist2Hist4CMD(LikelihoodFunc):
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
-            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-            h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
+            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
+                False, sample_obs, self.model, self.photsys, self.bins
+            )
+            h_syn, _, _ = CMD.extract_hist2d(
+                True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
+            )
             n_syn = len(sample_syn)
             n_obs = len(sample_obs)
             h_syn = h_syn / (n_syn / n_obs)
@@ -71,80 +75,80 @@ class Hist2Hist4CMD(LikelihoodFunc):
             return lnlike
 
 
-class Hist2Hist4Bands(LikelihoodFunc):
-    def __init__(self, model, photsys, **kwargs):
-        """
-
-        Parameters
-        ----------
-        model
-        photsys
-        **kwargs : dict
-            - step
-            - bins
-        """
-        self.func = 'band2band'
-        self.model = model
-        self.photsys = photsys
-        source = config.config[self.model][self.photsys]
-        self.bands = source['bands']
-        self.bands_err = source['bands_err']
-        step_input = kwargs.get('step')
-        bins_input = kwargs.get('bins')
-        self.bins_flag = False
-        self.step_flag = False
-
-        if step_input is None and bins_input is None:
-            self.bins = None
-            self.bins_flag = True
-        elif step_input is not None and bins_input is None:
-            self.step = step_input
-            self.step_flag = True
-        elif step_input is None and bins_input is not None:
-            self.bins = bins_input
-            self.bins_flag = True
-        elif step_input is not None and bins_input is not None:
-            print("WARNING! Set bins and step at the same time, change to default (Sturges Rule).")
-            self.bins_flag = True
-
-    def eval_lnlike(self, sample_obs, sample_syn):
-        """
-
-        Parameters
-        ----------
-        sample_obs
-        sample_syn
-
-        Returns
-        -------
-
-        """
-
-        # calculate for each band
-        band_lnlikes = []
-        n_syn = len(sample_syn)
-        n_obs = len(sample_obs)
-
-        for _, _err in zip(self.bands, self.bands_err):
-            band_obs = sample_obs[_]
-            # band_obs_err = sample_obs[_]
-            band_syn = sample_syn[_]
-            if self.bins_flag:
-                if self.bins is None:
-                    self.bins = int(1 + np.log2(len(sample_obs)))
-                    band_bin = self.bins
-                elif isinstance(self.bins, int):
-                    band_bin = self.bins
-            elif self.step_flag:
-                band_bin = np.arange(min(band_obs), max(band_obs) + self.step, self.step)
-
-            h_obs, he_obs = np.histogram(band_obs, bins=band_bin)
-            h_syn, he_syn = np.histogram(band_syn, bins=band_bin)
-            h_syn = h_syn / (n_syn / n_obs)
-            aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-            band_lnlikes.append(aux)
-        lnlike = np.sum(band_lnlikes)
-        return lnlike
+# class Hist2Hist4Bands(LikelihoodFunc):
+#     def __init__(self, model, photsys, **kwargs):
+#         """
+#
+#         Parameters
+#         ----------
+#         model
+#         photsys
+#         **kwargs : dict
+#             - step
+#             - bins
+#         """
+#         self.func = 'band2band'
+#         self.model = model
+#         self.photsys = photsys
+#         source = config.config[self.model][self.photsys]
+#         self.bands = source['bands']
+#         self.bands_err = source['bands_err']
+#         step_input = kwargs.get('step')
+#         bins_input = kwargs.get('bins')
+#         self.bins_flag = False
+#         self.step_flag = False
+#
+#         if step_input is None and bins_input is None:
+#             self.bins = None
+#             self.bins_flag = True
+#         elif step_input is not None and bins_input is None:
+#             self.step = step_input
+#             self.step_flag = True
+#         elif step_input is None and bins_input is not None:
+#             self.bins = bins_input
+#             self.bins_flag = True
+#         elif step_input is not None and bins_input is not None:
+#             print("WARNING! Set bins and step at the same time, change to default (Sturges Rule).")
+#             self.bins_flag = True
+#
+#     def eval_lnlike(self, sample_obs, sample_syn):
+#         """
+#
+#         Parameters
+#         ----------
+#         sample_obs
+#         sample_syn
+#
+#         Returns
+#         -------
+#
+#         """
+#
+#         # calculate for each band
+#         band_lnlikes = []
+#         n_syn = len(sample_syn)
+#         n_obs = len(sample_obs)
+#
+#         for _, _err in zip(self.bands, self.bands_err):
+#             band_obs = sample_obs[_]
+#             # band_obs_err = sample_obs[_]
+#             band_syn = sample_syn[_]
+#             if self.bins_flag:
+#                 if self.bins is None:
+#                     self.bins = int(1 + np.log2(len(sample_obs)))
+#                     band_bin = self.bins
+#                 elif isinstance(self.bins, int):
+#                     band_bin = self.bins
+#             elif self.step_flag:
+#                 band_bin = np.arange(min(band_obs), max(band_obs) + self.step, self.step)
+#
+#             h_obs, he_obs = np.histogram(band_obs, bins=band_bin)
+#             h_syn, he_syn = np.histogram(band_syn, bins=band_bin)
+#             h_syn = h_syn / (n_syn / n_obs)
+#             aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+#             band_lnlikes.append(aux)
+#         lnlike = np.sum(band_lnlikes)
+#         return lnlike
 
 
 class Hist2Point4CMD(LikelihoodFunc):
@@ -173,8 +177,12 @@ class Hist2Point4CMD(LikelihoodFunc):
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
-            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(sample_obs, self.model, self.photsys, self.bins)
-            h_syn, _, _ = CMD.extract_hist2d(sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs))
+            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
+                False, sample_obs, self.model, self.photsys, self.bins
+            )
+            h_syn, _, _ = CMD.extract_hist2d(
+                True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
+            )
             epsilon = 1e-20
             h_syn = h_syn / np.sum(h_syn)
             h_syn = h_syn + epsilon
@@ -252,22 +260,25 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_star
 def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, times=1):
     # try:
     warnings.filterwarnings("ignore", category=RuntimeWarning)
-    logage, mh, dist, Av, fb = theta
+    logage, mh, dm, Av, fb = theta
     logage_step, mh_step = step
     logage = round_to_step(logage, logage_step)
     mh = round_to_step(mh, mh_step)
-    theta = logage, mh, dist, Av, fb
-    # !NOTE: theta range, dist(for M31) range [700,800] kpc
+    theta = logage, mh, dm, Av, fb
+    # !NOTE: theta range, dm(LMC,SMC~18.5, M31~24.5)
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
+    # !                               Li Lu MIMO & PhD thesis
+    # !      dm(for Gaia) range [3, 15] Li Lu MIMO & PhD thesis
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
-    if ((logage > 10.0) or (logage < 6.6) or (mh < -0.9) or (mh > 0.7) or
-            (dist < 700) or (dist > 850) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1)):
+    if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+            (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
         return -np.inf
     else:
         if times == 1:
             sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             if sample_syn is False:
-                return 1e10
+                # return 1e10
+                return -np.inf
             else:
                 lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
                 return lnlike
