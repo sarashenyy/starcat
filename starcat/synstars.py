@@ -44,7 +44,7 @@ class SynStars(object):
         # self.mag = source['mag']
 
     @log_time
-    def __call__(self, theta, n_stars, variable_type_isoc, test=False, **kwargs):
+    def __call__(self, theta, n_stars, variable_type_isoc, test=False, figure=False, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -90,7 +90,11 @@ class SynStars(object):
         accepted = 0
         # batch_size = int(n_stars * 10)
         # runtime test
-        batch_size = int(n_stars * 1.2)  # test results show that *1.2 can maximize the use of synthetic
+        if self.photsys == 'CSST':
+            best_rate = 1.2
+        elif self.photsys == 'gaiaDR3':
+            best_rate = 2
+        batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
         total_size = batch_size
 
@@ -126,9 +130,9 @@ class SynStars(object):
 
             elif self.photsys == 'gaiaDR3':
                 # condition为只要有一个波段暗于极限星等，就把它丢弃
-                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+                condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
                 for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
-                    cond = sample_syn[b] > b_max
+                    cond = sample_syn[b] >= b_max
                     condition = condition | cond
 
             sample_syn = sample_syn[~condition].reset_index(drop=True)
@@ -136,10 +140,16 @@ class SynStars(object):
             accepted += len(sample_syn)
 
             # dynamically adjusting batch_size
-            if accepted < n_stars:
-                remain = n_stars - accepted
-                batch_size = int(remain * 1.2)
-                total_size += batch_size
+            if self.photsys == 'CSST':
+                if accepted < n_stars:
+                    remain = n_stars - accepted
+                    batch_size = int(remain * best_rate)
+                    total_size += batch_size
+            elif self.photsys == "gaiaDR3":
+                if accepted < n_stars:
+                    # remain = n_stars - accepted
+                    # batch_size = int(remain * best_rate)
+                    total_size += batch_size
             test_sample_time += 1
             # rejection_rate = 1 - len(sample_syn) / batch_size
             # if rejection_rate > 0.2:
@@ -155,7 +165,7 @@ class SynStars(object):
         accepted_rate = accepted / total_size
 
         # test the process
-        if test is True:
+        if figure is True:
             def _visualize_CSST_():
                 fig = plt.figure(figsize=(10, 7.5))
                 gs1 = GridSpec(2, 3, figure=fig, wspace=0.4, hspace=0.3)
@@ -216,7 +226,7 @@ class SynStars(object):
                 ax2 = fig.add_subplot(gs[0, 1])
                 ax2.scatter(c_noe[bin], m_noe[bin], label='binary', s=3)
                 ax2.scatter(c_noe[~bin], m_noe[~bin], label='single', s=3)
-                ax2.legend()
+                # ax2.legend()
                 ax2.set_xlabel('BP-RP')
                 ax2.invert_yaxis()
 
@@ -236,6 +246,8 @@ class SynStars(object):
                 _visualize_CSST_()
             elif self.photsys == 'gaiaDR3':
                 _visualize_GAIA_()
+
+        if test is True:
             return samples, accepted_rate, total_size, test_sample_time, isoc, isoc_new
 
         else:

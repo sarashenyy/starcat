@@ -9,7 +9,7 @@
 data_dir = '/Users/sara/PycharmProjects/starcat/data/' # local
 
 # observation data details
-[observation]
+[observation.gaiaDR3]
 bands = ['Gmag', 'BPmag', 'RPmag']
 bands_err = ['G_err', 'BP_err', 'RP_err']
 prob = 'Prob'
@@ -17,24 +17,13 @@ prob = 'Prob'
 mag = ['Gmag']
 color = [['BPmag', 'RPmag']]
 
+[observation.CSST] # validation
+mag = ['g']
+color = [['g', 'i']]
+
+
 
 # model data details
-[parsec.gaiaDR2]
-isoc_dir = 'isochrones/parsec/gaiaDR2/'
-# column name in parsec
-bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
-# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
-bands = ['G', 'BP', 'RP'] # syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
-band_max = [20.0, 18.0, 18.0]
-# if there is more than one color and more than one mag,
-# change mag from str to list and be careful for the place where used it !!
-mag = ['G']
-color = [['BP', 'RP']]
-mini = 'Mini'
-mass = 'Mass'
-#label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
-#phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
-
 [parsec.gaiaDR3]
 isoc_dir = 'isochrones/parsec/gaiaDR3/'
 # column name in parsec
@@ -93,5 +82,20 @@ mass = 'Mass'
 #[mist.csst]
 #col_mass = 'mist_csst_mass'
 #col_mags = ['mag1', 'mag2']
+
+#[parsec.gaiaDR2]
+#isoc_dir = 'isochrones/parsec/gaiaDR2/'
+## column name in parsec
+#bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
+#bands = ['G', 'BP', 'RP'] # syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
+#band_max = [20.0, 18.0, 18.0]
+## if there is more than one color and more than one mag,
+## change mag from str to list and be careful for the place where used it !!
+#mag = ['G']
+#color = [['BP', 'RP']]
+#mini = 'Mini'
+#mass = 'Mass'
+##label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
+##phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
 

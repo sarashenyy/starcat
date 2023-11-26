@@ -146,7 +146,7 @@ class Individual(Photerr):
         self.bands = source['bands']
 
         # observation details
-        o_source = config.config['observation']
+        o_source = config.config['observation'][photsys]
         self.o_bands = o_source['bands']
         self.oe_bands = o_source['bands_err']
         # self.prob = o_source['Prob']
