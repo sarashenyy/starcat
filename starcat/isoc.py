@@ -161,7 +161,10 @@ class Parsec(IsocModel):
         # label = source['label']
         # phase = source['phase']
         isoc_dir = source['isoc_dir']
+        if mh == -0.:  # change -0.0 to +0.0
+            mh = 0.
         isoc_path = config.data_dir + isoc_dir + f'age{logage:+.2f}_mh{mh:+.2f}.joblib'
+
 
         # EOFE_flag = True
         # if os.path.exists(isoc_path):
@@ -211,10 +214,21 @@ class Parsec(IsocModel):
             isochrone = joblib.load(isoc_path)
         else:
             c = CMD()
-            isochrone = c.get_one_isochrone(
-                logage=logage, z=None, mh=mh, photsys_file=photsyn, track_parsec=track_parsec
-            )
-            isochrone = isochrone[0:-1].to_pandas()
+            if photsyn == 'gaiaDR3':
+                photsys_file = 'gaiaEDR3'
+            else:
+                photsys_file = photsyn
+            try:
+                isochrone = c.get_one_isochrone(
+                    logage=logage, z=None, mh=mh, photsys_file=photsys_file, track_parsec=track_parsec
+                )
+            except:
+                print(f'logage={logage}, [M/H]={mh}, photsys_file={photsys_file}')
+                return False
+            # isochrone = isochrone[0:-1].to_pandas()
+            # 0=PMS, 1=MS, 2=SGB, 3=RGB
+            isochrone = isochrone[
+                (isochrone['label'] >= 0) & (isochrone['label'] <= 3)].to_pandas()
             joblib.dump(isochrone, isoc_path)
 
         useful_columns = [mini] + bands_isoc
