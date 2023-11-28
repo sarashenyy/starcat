@@ -62,46 +62,49 @@ class Hist2Hist4CMD(LikelihoodFunc):
             # cbar_syn = fig.colorbar(im_syn, ax=ax, label='Count (Synthetic)')
             #
             # plt.show()
-            n_syn = len(sample_syn)  # 我发现了盲点！是盲点吗？？
-            n_obs = len(sample_obs)
-            h_syn = h_syn / (n_syn / n_obs)
+            if np.sum(h_syn) == 0:
+                return -np.inf
+            else:
+                n_syn = len(sample_syn)  # 我发现了盲点！是盲点吗？？
+                n_obs = len(sample_obs)
+                h_syn = h_syn / (n_syn / n_obs)
 
-            # # 画残差
-            # resid = h_obs - h_syn
-            # import matplotlib.colors as mcolors
-            # norm = mcolors.TwoSlopeNorm(vmin=resid.min(), vmax=resid.max(), vcenter=0)
-            # fig, ax = plt.subplots(figsize=(5, 4))  # 调整画布大小
-            # # 绘制 h_obs
-            # c_obs = sample_obs['BPmag'] - sample_obs['RPmag']
-            # m_obs = sample_obs['Gmag']
-            # top_idx = np.argmin(m_obs)
-            # bottom_idx = np.argmax(m_obs)
-            # left_idx = np.argmin(c_obs)
-            # right_idx = np.argmax(c_obs)
-            #
-            # ax.scatter(c_obs, m_obs, s=1, color='grey', alpha=0.5)
-            # ax.scatter(c_obs[top_idx], m_obs[top_idx], marker='*', color='red', s=50)
-            # ax.scatter(c_obs[bottom_idx], m_obs[bottom_idx], marker='*', color='red', s=50)
-            # ax.scatter(c_obs[left_idx], m_obs[left_idx], marker='*', color='red', s=50)
-            # ax.scatter(c_obs[right_idx], m_obs[right_idx], marker='*', color='red', s=50)
-            #
-            # delta_x = (xe_obs[-1] - xe_obs[0]) * 0.05  # 5%空白
-            # delta_y = (ye_obs[-1] - ye_obs[0]) * 0.05  # 5%空白
-            # ax.set_xlim(xe_obs[0] - delta_x, xe_obs[-1] + delta_x)
-            # ax.set_ylim(ye_obs[-1] + delta_y, ye_obs[0] - delta_y)
-            #
-            # im_obs = ax.imshow(resid.T, interpolation='nearest', aspect='auto',
-            #                    extent=[xe_obs[0], xe_obs[-1], ye_obs[-1], ye_obs[0]],
-            #                    cmap=plt.cm.RdBu, norm=norm)  # extent=[xe_obs[0], xe_obs[-1], ye_obs[-1], ye_obs[0]]
-            # cbar_obs = fig.colorbar(im_obs, ax=ax, label='Count (resid)')
-            # plt.show()
+                # # 画残差
+                # resid = h_obs - h_syn
+                # import matplotlib.colors as mcolors
+                # norm = mcolors.TwoSlopeNorm(vmin=resid.min(), vmax=resid.max(), vcenter=0)
+                # fig, ax = plt.subplots(figsize=(5, 4))  # 调整画布大小
+                # # 绘制 h_obs
+                # c_obs = sample_obs['BPmag'] - sample_obs['RPmag']
+                # m_obs = sample_obs['Gmag']
+                # top_idx = np.argmin(m_obs)
+                # bottom_idx = np.argmax(m_obs)
+                # left_idx = np.argmin(c_obs)
+                # right_idx = np.argmax(c_obs)
+                #
+                # ax.scatter(c_obs, m_obs, s=1, color='grey', alpha=0.5)
+                # ax.scatter(c_obs[top_idx], m_obs[top_idx], marker='*', color='red', s=50)
+                # ax.scatter(c_obs[bottom_idx], m_obs[bottom_idx], marker='*', color='red', s=50)
+                # ax.scatter(c_obs[left_idx], m_obs[left_idx], marker='*', color='red', s=50)
+                # ax.scatter(c_obs[right_idx], m_obs[right_idx], marker='*', color='red', s=50)
+                #
+                # delta_x = (xe_obs[-1] - xe_obs[0]) * 0.05  # 5%空白
+                # delta_y = (ye_obs[-1] - ye_obs[0]) * 0.05  # 5%空白
+                # ax.set_xlim(xe_obs[0] - delta_x, xe_obs[-1] + delta_x)
+                # ax.set_ylim(ye_obs[-1] + delta_y, ye_obs[0] - delta_y)
+                #
+                # im_obs = ax.imshow(resid.T, interpolation='nearest', aspect='auto',
+                #                    extent=[xe_obs[0], xe_obs[-1], ye_obs[-1], ye_obs[0]],
+                #                    cmap=plt.cm.RdBu, norm=norm)  # extent=[xe_obs[0], xe_obs[-1], ye_obs[-1], ye_obs[0]]
+                # cbar_obs = fig.colorbar(im_obs, ax=ax, label='Count (resid)')
+                # plt.show()
 
-            # lnlike = - 0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-            lnlike = -(0.5 / n_obs) * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
-            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
-            # delta = np.max(lnlike)
-            # lnlike = lnlike - delta
-            return lnlike
+                lnlike = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+                # lnlike = -(0.5 / n_obs) * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+                # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+                # delta = np.max(lnlike)
+                # lnlike = lnlike - delta
+                return lnlike
 
         elif self.number > 1:
             source = config.config[self.model][self.photsys]
@@ -123,7 +126,7 @@ class Hist2Hist4CMD(LikelihoodFunc):
                     h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
 
                 h_syn = h_syn / (n_syn / n_obs)
-                aux = -(0.5 / n_obs) * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
+                aux = -0.5 * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
                 lnlikes.append(aux)
             lnlike = np.sum(lnlikes)
             # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
@@ -240,16 +243,32 @@ class Hist2Point4CMD(LikelihoodFunc):
             h_syn, _, _ = CMD.extract_hist2d(
                 True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
             )
-            epsilon = 1e-20
-            h_syn = h_syn + epsilon
-            h_syn = h_syn / np.sum(h_syn)
-            # lnlike = np.sum(h_obs * np.log10(h_syn))
-            # lnlike = np.sum(h_obs * np.log(h_syn))
-            lnlike = np.sum(h_obs * np.log(h_syn)) / (len(sample_obs) * 100.)
-            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
-            # delta = np.max(lnlike)
-            # lnlike = lnlike - delta
-            return lnlike
+            if np.sum(h_syn) == 0:
+                return -np.inf
+            else:
+                # h_syn = h_syn / np.sum(h_syn)
+                epsilon = 1e-20
+                h_syn = h_syn + epsilon
+                h_syn = h_syn / np.sum(h_syn)
+                # lnlike = np.sum(h_obs * np.log10(h_syn))
+                # lnlike = np.sum(h_obs * np.log(h_syn))
+                lnlike = np.sum(h_obs * np.log(h_syn))
+                # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+                # delta = np.max(lnlike)
+                # lnlike = lnlike - delta
+                return lnlike
+
+            # h_syn = h_syn / np.sum(h_syn)
+            # epsilon = 1e-20
+            # h_syn = h_syn + epsilon
+            # h_syn = h_syn / np.sum(h_syn)
+            # # lnlike = np.sum(h_obs * np.log10(h_syn))
+            # # lnlike = np.sum(h_obs * np.log(h_syn))
+            # lnlike = np.sum(h_obs * np.log(h_syn))  # / (len(sample_obs) * 100.)
+            # # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # # delta = np.max(lnlike)
+            # # lnlike = lnlike - delta
+            # return lnlike
         elif self.number > 1:
             source = config.config[self.model][self.photsys]
             epsilon = 1e-20
@@ -268,9 +287,10 @@ class Hist2Point4CMD(LikelihoodFunc):
                     h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
                     h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
 
+                h_syn = h_syn / np.sum(h_syn)
                 h_syn = h_syn + epsilon
                 h_syn = h_syn / np.sum(h_syn)
-                aux = np.sum(h_obs * np.log(h_syn)) / (len(sample_obs) * 100.)
+                aux = np.sum(h_obs * np.log(h_syn))  # / (len(sample_obs) * 100.)
                 lnlikes.append(aux)
             lnlike = np.sum(lnlikes)
             # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
@@ -329,10 +349,11 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     # Gaia MW
     if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
             (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
-        # CSST M31
-        # if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-        #         (dm < 20.) or (dm > 28.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
         return -np.inf
+    # CSST M31
+    # if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+    #         (dm < 20.) or (dm > 28.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
+    #     return -np.inf
     else:
         if times == 1:
             sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)

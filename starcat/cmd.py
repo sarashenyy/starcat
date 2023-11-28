@@ -26,7 +26,7 @@ class CMD(object):
         if synthetic is True:
             source = config.config[model][photsys]
         elif synthetic is False:
-            source = config.config['observation']
+            source = config.config['observation'][photsys]
 
         m = sample[source['mag'][0]]
         c = sample[source['color'][0][0]] - sample[source['color'][0][1]]

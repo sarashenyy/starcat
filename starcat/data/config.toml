@@ -48,28 +48,36 @@ mass = 'Mass'
 [parsec.CSST]
 isoc_dir = 'isochrones/parsec/CSST/'
 # column name in parsec
-bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
+#bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
+bands_isoc = ['gmag', 'imag']
 mini = 'Mini'
 # mass = 'Mass'
 # ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
-bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
+#bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
+#bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
+bands = ['g', 'i']
+bands_err = ['g_err', 'i_err']
 # band_max = instrument limit + 0.5(consider faint binary) ;
 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
-band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
+#band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
+band_max = [25.0, 25.0] # g, i
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+#extinction_coefs = [
+#    [2887.74, 609.0, 1.88462], # NUV
+#    [3610.40, 759.0, 1.55299], # u
+#    [4811.96, 1357.0, 1.19715], # g
+#    [6185.81, 1435.0, 0.86630], # r
+#    [7641.61, 1536.0, 0.66204], # i
+#    [9043.96, 1108.0, 0.47508], # z
+#    [9660.53, 633.0, 0.42710]   # y
+#]
 extinction_coefs = [
-    [2887.74, 609.0, 1.88462], # NUV
-    [3610.40, 759.0, 1.55299], # u
     [4811.96, 1357.0, 1.19715], # g
-    [6185.81, 1435.0, 0.86630], # r
-    [7641.61, 1536.0, 0.66204], # i
-    [9043.96, 1108.0, 0.47508], # z
-    [9660.53, 633.0, 0.42710]   # y
+    [7641.61, 1536.0, 0.66204]  # i
 ]
+mag = ['g']
+color = [['g', 'i']]
 
-mag = ['u', 'g', 'r', 'i', 'z', 'y']
-color = [['NUV', 'u'], ['u', 'g'], ['g', 'r'], ['r', 'i'], ['i', 'z'], ['z', 'y']]
 mass = 'Mass'
 #label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 #phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']

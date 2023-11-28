@@ -90,9 +90,9 @@ class SynStars(object):
         accepted = 0
         # batch_size = int(n_stars * 10)
         # runtime test
-        if self.photsys == 'CSST':
-            best_rate = 1.2
-        elif self.photsys == 'gaiaDR3':
+        if self.photsys == 'CSST':  # and len(self.bands) != 2
+            best_rate = 1.2  # if discard only when all bands ar below magnitude limit
+        elif self.photsys == 'gaiaDR3':  # or len(self.bands) == 2
             best_rate = 2
         batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
@@ -121,14 +121,14 @@ class SynStars(object):
             #     for mag_col, band_max_val in zip(self.mag, self.band_max_obs):
             #         sample_syn = sample_syn[sample_syn[mag_col] <= band_max_val]
 
-            if self.photsys == 'CSST':
+            if self.photsys == 'CSST':  # and len(self.bands) != 2
                 # condition为所有波段都暗于极限星等的星，将之丢弃
                 condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
                 for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
                     cond = sample_syn[b] > b_max
                     condition = condition & cond
 
-            elif self.photsys == 'gaiaDR3':
+            elif self.photsys == 'gaiaDR3':  # or len(self.bands) == 2
                 # condition为只要有一个波段暗于极限星等，就把它丢弃
                 condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
                 for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):

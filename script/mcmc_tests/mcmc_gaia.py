@@ -13,6 +13,7 @@ from starcat import (Isoc, Parsec, IMF,
 
 # %matplotlib osx
 
+plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
 file_path = '/Users/sara/PycharmProjects/starcat/data/Hunt23/NGC_2682.csv'
 
 # %%
@@ -51,26 +52,51 @@ synstars_inst = SynStars(model, photsys,
                          imf_inst, binmethod, photerr)
 
 # %%
-logage, mh, dm, Av, fb = 9.5, 0.05, 9.6, 0.16, 0.3
+logage, mh, dm, Av, fb = 9.5, 0.05, 9.6, 0.16, 0.3  # NGC2682
+# logage, mh, dm, Av, fb = 8.6, 0.0, 8.45, 0.18, 0.27  # NGC 3532
+# logage, mh, dm, Av, fb = 10.0, -1.8, 10.0, 0.16, 0.3
 theta = logage, mh, dm, Av, fb
 n_stars = 1500
 
-samples = synstars_inst(theta, n_stars, isoc_inst)
+samples, _, _, _, _, _ = synstars_inst(theta, n_stars, isoc_inst, test=True, figure=True)
 observation = samples.rename(columns={'G': 'Gmag', 'BP': 'BPmag', 'RP': 'RPmag'})
 # %%
 bins = 50
 h2h_cmd_inst = Hist2Hist4CMD(model, photsys, bins)
 h2p_cmd_inst = Hist2Point4CMD(model, photsys, bins)
 
-logage, mh, dm, Av, fb = 9.5, 0.05, 9.6, 0.16, 0.3
+# logage, mh, dm, Av, fb = 10.0, -1.8, 10.0, 0.16, 0.3
+# logage, mh, dm, Av, fb = 8.6, 0.0, 8.45, 0.18, 0.27  # NGC3532
+logage, mh, dm, Av, fb = 9.5, 0.05, 9.6, 0.16, 0.3  # NGC2682
 theta = logage, mh, dm, Av, fb
 step = (0.05, 0.05)  # logage, mh
 n_stars = 10000
 
-print(lnlike_5p(theta, step, isoc_inst, h2h_cmd_inst, synstars_inst, n_stars, observation))
-print(lnlike_5p(theta, step, isoc_inst, h2p_cmd_inst, synstars_inst, n_stars, observation))
+samples1, accepted_rate, total_size, test_sample_time, isoc, isoc_new = synstars_inst(
+    theta, n_stars, isoc_inst, test=True, figure=True)
+# %%
+h2h = lnlike_5p(theta, step, isoc_inst, h2h_cmd_inst, synstars_inst, n_stars, observation, 5)
+h2p = lnlike_5p(theta, step, isoc_inst, h2p_cmd_inst, synstars_inst, n_stars, observation, 5)
+print(h2h)
+print(h2p)
+
+fig, ax = plt.subplots(figsize=(4, 4))
+bin1 = ~samples1['mass_sec'].isna()
+ax.scatter(samples1['BP'][bin1] - samples1['RP'][bin1], samples1['G'][bin1], color='blue', s=5, alpha=0.6)
+ax.scatter(samples1['BP'][~bin1] - samples1['RP'][~bin1], samples1['G'][~bin1], color='orange', s=5, alpha=0.6)
+ax.scatter(observation['BPmag'] - observation['RPmag'], observation['Gmag'], s=1, color='gray')
+ax.invert_yaxis()
+ax.set_xlim(min(observation['BPmag'] - observation['RPmag']) - 0.2,
+            max(observation['BPmag'] - observation['RPmag']) + 0.2)
+ax.set_ylim(max(observation['Gmag']) + 0.5, min(observation['Gmag']) - 0.5)
+ax.set_title(f'logage={logage}, [M/H]={mh},\n'
+             f'DM={dm}, Av={Av}, fb={fb}', fontsize=12)
+ax.text(0.6, 0.9, f'H2H={h2h:.4f}', transform=ax.transAxes, fontsize=11)
+ax.text(0.6, 0.8, f'H2P={h2p:.4f}', transform=ax.transAxes, fontsize=11)
+fig.show()
 
 # %%
+# p0以初值为均值分布
 ndim = 5
 nwalkers = 50
 
@@ -94,6 +120,7 @@ for i in range(ndim):
 p0 = np.array(temp).T
 
 # %%
+# p0在参数空间内均匀分布
 ndim = 5
 nwalkers = 50
 theta_range = [[6.7, 10.0], [-2.0, 0.4], [3.0, 15.0], [0.0, 3.0], [0.2, 1.0]]
@@ -107,33 +134,35 @@ for bounds in theta_range:
 p0 = np.array(theta_samples).T
 
 # %%
+likelihood_inst = h2p_cmd_inst
 with Pool(8) as pool:
     sampler = emcee.EnsembleSampler(
         nwalkers, ndim, lnlike_5p,
         pool=pool,
-        args=(step, isoc_inst, h2p_cmd_inst, synstars_inst, n_stars, observation)
+        args=(step, isoc_inst, likelihood_inst, synstars_inst, n_stars, observation, 5)
     )
-    nburn = 15000
-    pos, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
+    nburn = 500
+    p1, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
 
     # sampler.reset()
-    # pos, prob, state = sampler.run_mcmc(p1, 10000, progress=True)
+    # pos, prob, state = sampler.run_mcmc(p1, 2000, progress=True)
+
 
 # %%
-plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
-
-# 获取采样样本链和对应的 ln(probability)
-samples = sampler.flatchain
-ln_prob = sampler.flatlnprobability
-# 找到具有最大 ln(probability) 的索引
-max_prob_index = np.argmax(ln_prob)
-# 从样本链中获取最大 ln(probability) 对应的参数值
-max_prob_sample = samples[max_prob_index]
+# # 获取采样样本链和对应的 ln(probability)
+# samples = sampler.flatchain
+# ln_prob = sampler.flatlnprobability
+# # 找到具有最大 ln(probability) 的索引
+# max_prob_index = np.argmax(ln_prob)
+# # 从样本链中获取最大 ln(probability) 对应的参数值
+# max_prob_sample = samples[max_prob_index]
 
 fig = corner.corner(
     sampler.flatchain,
     labels=['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$'],
-    truths=[9.5, 0.05, 9.6, 0.16, 0.3],
+    truths=[9.5, 0.05, 9.6, 0.16, 0.3],  # NGC2682
+    # truths=[8.6, 0.0, 8.45, 0.18, 0.27],  # NGC3532
+    # truths=[10.0, -1.8, 10.0, 0.16, 0.3],
     quantiles=[0.16, 0.5, 0.84],
     show_titles=True,
     title_kwargs={'fontsize': 18},
