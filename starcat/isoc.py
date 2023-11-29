@@ -225,12 +225,11 @@ class Parsec(IsocModel):
             except:
                 print(f'logage={logage}, [M/H]={mh}, photsys_file={photsys_file}')
                 return False
-            # isochrone = isochrone[0:-1].to_pandas()
-            # 0=PMS, 1=MS, 2=SGB, 3=RGB
-            isochrone = isochrone[
-                (isochrone['label'] >= 0) & (isochrone['label'] <= 3)].to_pandas()
+            isochrone = isochrone[0:-1].to_pandas()
             joblib.dump(isochrone, isoc_path)
 
+        # 0=PMS, 1=MS, 2=SGB, 3=RGB
+        isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 3)]
         useful_columns = [mini] + bands_isoc
         try:
             isoc = isochrone[useful_columns]
