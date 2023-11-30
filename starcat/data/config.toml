@@ -41,7 +41,6 @@ extinction_coefs = [
 
 mag = ['G']
 color = [['BP', 'RP']]
-mass = 'Mass'
 #label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 #phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
@@ -78,14 +77,26 @@ extinction_coefs = [
 mag = ['g']
 color = [['g', 'i']]
 
-mass = 'Mass'
 #label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
 #phase = ['PMS', 'MS', 'SGB', 'RGB', 'CHEB', 'CHEB_b', 'CHEB_r', 'EAGB']
 
-#[mist.gaiadr3]
-#
-#col_mass = 'mist_csst_mass'
-#col_mags = ['mag1', 'mag2']
+[mist.gaiaDR3]
+isoc_dir = 'isochrones/MIST/UBVRIplus/'
+# column name in MIST
+bands_isoc = ['Gaia_G_EDR3', 'Gaia_BP_EDR3', 'Gaia_RP_EDR3']
+mini = 'initial_mass'
+# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
+bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
+band_max = [18.0, 19.5, 18.2]
+# given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+extinction_coefs = [
+    [6390.21, 4416.0, 0.83627], # G
+    [5182.58, 2617.0, 1.08337], # BP
+    [7825.08, 2863.0, 0.63439]   # RP
+]
+mag = ['G']
+color = [['BP', 'RP']]
+
 #
 #[mist.csst]
 #col_mass = 'mist_csst_mass'

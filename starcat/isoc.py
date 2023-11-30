@@ -228,7 +228,7 @@ class Parsec(IsocModel):
             isochrone = isochrone[0:-1].to_pandas()
             joblib.dump(isochrone, isoc_path)
 
-        # 0=PMS, 1=MS, 2=SGB, 3=RGB
+        # label: 0=PMS, 1=MS, 2=SGB, 3=RGB
         isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 3)]
         useful_columns = [mini] + bands_isoc
         try:
@@ -310,7 +310,46 @@ class MIST(IsocModel):
         self.model = 'mist'
 
     def get_isoc(self, photsyn, **kwargs):
-        pass
+        logage_step = kwargs.get('logage_step')
+        mh_step = kwargs.get('mh_step')
+        if logage_step is None or logage_step == 0:
+            logage = kwargs.get('logage')
+        else:
+            logage = round_to_step(kwargs.get('logage'), step=kwargs.get('logage_step'))
+        if mh_step is None or mh_step == 0:  # mh_step = 0.5 only!
+            mh = kwargs.get('mh')
+        else:
+            mh = round_to_step(kwargs.get('mh'), step=kwargs.get('mh_step'))
+
+        source = config.config[self.model][photsyn]
+        bands_isoc = source['bands_isoc']
+        bands = source['bands']
+        mini = source['mini']
+        # mass = source['mass']
+        # label = source['label']
+        # phase = source['phase']
+        isoc_dir = source['isoc_dir']
+        if mh == -0.:  # change -0.0 to +0.0
+            mh = 0.
+        isoc_path = config.data_dir + isoc_dir + f'age{logage:+.2f}_mh{mh:+.2f}.joblib'
+        if os.path.exists(isoc_path):
+            isochrone = joblib.load(isoc_path)
+        else:
+            print(f'please download logage={logage:+.2f}, [M/H]={mh:+.2f}')
+
+        # phase: -1=PMS, 0=MS, 2=RGB
+        isochrone = isochrone[(isochrone['phase'] >= -1) & (isochrone['phase'] <= 2)]
+        useful_columns = [mini] + bands_isoc
+        try:
+            isoc = isochrone[useful_columns]
+            # ! begin to use the renamed isochorne (detail in config.toml: bands_isoc & bands)
+            rename_dict = dict(zip(bands_isoc, bands))
+            isoc = isoc.rename(columns=rename_dict)
+            return isoc
+        except UnboundLocalError:
+            print(f'logage={logage}, [M/H]={mh} occurs UnboundLocal Error in getting isochrone.')
+            return False
+
 
     def bulk_load(self, photsyn, logage_grid, mh_grid, n_jobs, **kwargs):
         """
