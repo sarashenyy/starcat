@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from starcat import (Isoc, Parsec, MIST, IMF,
+from starcat import (Isoc, MIST, IMF,
                      BinMRD, Individual,
                      SynStars,
                      lnlike_5p, Hist2Hist4CMD, Hist2Point4CMD)
@@ -19,37 +19,22 @@ file_path = '/Users/sara/PycharmProjects/starcat/data/Hunt23/NGC_2682.csv'
 # %%
 obs_sample = pd.read_csv(file_path, usecols=['Prob', 'Gmag', 'BPmag', 'RPmag', 'G_err', 'BP_err', 'RP_err'])
 
-Pobservation = obs_sample[obs_sample['Prob'] > 0.6]
-Pobservation = Pobservation[(Pobservation['BPmag'] - Pobservation['RPmag']) > -0.2]
-Pobservation = Pobservation[Pobservation['Gmag'] < 18.]
+Mobservation = obs_sample[obs_sample['Prob'] > 0.6]
+Mobservation = Mobservation[(Mobservation['BPmag'] - Mobservation['RPmag']) > -0.2]
+Mobservation = Mobservation[Mobservation['Gmag'] < 18.]
 
-c = Pobservation['BPmag'] - Pobservation['RPmag']
-sigma_c = np.sqrt((Pobservation['BP_err']) ** 2 + (Pobservation['RP_err']) ** 2)
-Pobservation = Pobservation[sigma_c < np.std(sigma_c) * 6]
+c = Mobservation['BPmag'] - Mobservation['RPmag']
+sigma_c = np.sqrt((Mobservation['BP_err']) ** 2 + (Mobservation['RP_err']) ** 2)
+Mobservation = Mobservation[sigma_c < np.std(sigma_c) * 6]
 
-print(max(Pobservation['Gmag']), max(Pobservation['BPmag']), max(Pobservation['RPmag']))
-print(len(Pobservation))
+print(max(Mobservation['Gmag']), max(Mobservation['BPmag']), max(Mobservation['RPmag']))
+print(len(Mobservation))
 
 fig, ax = plt.subplots(figsize=(3, 4))
-ax.scatter(Pobservation['BPmag'] - Pobservation['RPmag'], Pobservation['Gmag'], s=3)
-ax.set_ylim(max(Pobservation['Gmag']) + 1, min(Pobservation['Gmag']) - 1)
+ax.scatter(Mobservation['BPmag'] - Mobservation['RPmag'], Mobservation['Gmag'], s=3)
+ax.set_ylim(max(Mobservation['Gmag']) + 1, min(Mobservation['Gmag']) - 1)
 fig.show()
 
-# %%
-# parsec
-photsys = 'gaiaDR3'
-Pmodel = 'parsec'
-imf = 'kroupa01'
-imf_inst = IMF(imf)
-parsec_inst = Parsec()
-# binmethod = BinSimple()
-binmethod = BinMRD()
-# med_obs=[200,20,20]
-# photerr = GaiaDR3(model, med_obs)
-photerr = Individual(Pmodel, photsys, Pobservation)
-Pisoc_inst = Isoc(parsec_inst)
-Psynstars_inst = SynStars(Pmodel, photsys,
-                          imf_inst, binmethod, photerr)
 # %%
 # MIST
 photsys = 'gaiaDR3'
@@ -61,7 +46,7 @@ mist_inst = MIST()
 binmethod = BinMRD()
 # med_obs=[200,20,20]
 # photerr = GaiaDR3(model, med_obs)
-photerr = Individual(Mmodel, photsys, Pobservation)
+photerr = Individual(Mmodel, photsys, Mobservation)
 Misoc_inst = Isoc(mist_inst)
 Msynstars_inst = SynStars(Mmodel, photsys,
                           imf_inst, binmethod, photerr)
@@ -72,27 +57,30 @@ logage, mh, dm, Av, fb = 9.5, 0.0, 9.6, 0.16, 0.3  # NGC2682
 theta = logage, mh, dm, Av, fb
 n_stars = 1500
 
-Psamples, _, _, _, _, _ = Psynstars_inst(theta, n_stars, Pisoc_inst, test=True, figure=True)
 Msamples, _, _, _, _, _ = Msynstars_inst(theta, n_stars, Misoc_inst, test=True, figure=True)
-Pobservation = Psamples.rename(columns={'G': 'Gmag', 'BP': 'BPmag', 'RP': 'RPmag'})
 Mobservation = Msamples.rename(columns={'G': 'Gmag', 'BP': 'BPmag', 'RP': 'RPmag'})
 # %%
+import joblib
+
+Mobservation = joblib.load('/Users/sara/PycharmProjects/starcat/data/mcmc_tests/NGC2682_like_mist.csv')
+p0 = joblib.load('/Users/sara/PycharmProjects/starcat/data/mcmc_tests/NGC2682_like_p0.csv')
+# %%
 bins = 50
-h2h_cmd_inst = Hist2Hist4CMD(Pmodel, photsys, bins)
-h2p_cmd_inst = Hist2Point4CMD(Pmodel, photsys, bins)
+h2h_cmd_inst = Hist2Hist4CMD(Mmodel, photsys, bins)
+h2p_cmd_inst = Hist2Point4CMD(Mmodel, photsys, bins)
 
 # logage, mh, dm, Av, fb = 10.0, -1.8, 10.0, 0.16, 0.3
 # logage, mh, dm, Av, fb = 8.6, 0.0, 8.45, 0.18, 0.27  # NGC3532
-logage, mh, dm, Av, fb = 9.5, 0.05, 9.6, 0.16, 0.3  # NGC2682
+logage, mh, dm, Av, fb = 9.5, 0.0, 9.6, 0.16, 0.3  # NGC2682
 theta = logage, mh, dm, Av, fb
-step = (0.05, 0.05)  # logage, mh
+step = (0.05, 0.5)  # logage, mh
 n_stars = 10000
 
-samples1, accepted_rate, total_size, test_sample_time, isoc, isoc_new = Psynstars_inst(
-    theta, n_stars, Pisoc_inst, test=True, figure=True)
+samples1, accepted_rate, total_size, test_sample_time, isoc, isoc_new = Msynstars_inst(
+    theta, n_stars, Misoc_inst, test=True, figure=True)
 # %%
-h2h = lnlike_5p(theta, step, Pisoc_inst, h2h_cmd_inst, Psynstars_inst, n_stars, Pobservation, 'MW', 5)
-h2p = lnlike_5p(theta, step, Pisoc_inst, h2p_cmd_inst, Psynstars_inst, n_stars, Pobservation, 'MW', 5)
+h2h = lnlike_5p(theta, step, Misoc_inst, h2h_cmd_inst, Msynstars_inst, n_stars, Mobservation, 'MW', 5)
+h2p = lnlike_5p(theta, step, Misoc_inst, h2p_cmd_inst, Msynstars_inst, n_stars, Mobservation, 'MW', 5)
 print(h2h)
 print(h2p)
 
@@ -100,11 +88,11 @@ fig, ax = plt.subplots(figsize=(4, 4))
 bin1 = ~samples1['mass_sec'].isna()
 ax.scatter(samples1['BP'][bin1] - samples1['RP'][bin1], samples1['G'][bin1], color='blue', s=5, alpha=0.6)
 ax.scatter(samples1['BP'][~bin1] - samples1['RP'][~bin1], samples1['G'][~bin1], color='orange', s=5, alpha=0.6)
-ax.scatter(Pobservation['BPmag'] - Pobservation['RPmag'], Pobservation['Gmag'], s=1, color='gray')
+ax.scatter(Mobservation['BPmag'] - Mobservation['RPmag'], Mobservation['Gmag'], s=1, color='gray')
 ax.invert_yaxis()
-ax.set_xlim(min(Pobservation['BPmag'] - Pobservation['RPmag']) - 0.2,
-            max(Pobservation['BPmag'] - Pobservation['RPmag']) + 0.2)
-ax.set_ylim(max(Pobservation['Gmag']) + 0.5, min(Pobservation['Gmag']) - 0.5)
+ax.set_xlim(min(Mobservation['BPmag'] - Mobservation['RPmag']) - 0.2,
+            max(Mobservation['BPmag'] - Mobservation['RPmag']) + 0.2)
+ax.set_ylim(max(Mobservation['Gmag']) + 0.5, min(Mobservation['Gmag']) - 0.5)
 ax.set_title(f'logage={logage}, [M/H]={mh},\n'
              f'DM={dm}, Av={Av}, fb={fb}', fontsize=12)
 ax.text(0.6, 0.9, f'H2H={h2h:.2f}', transform=ax.transAxes, fontsize=11)
@@ -144,18 +132,20 @@ theta_range = [[6.7, 10.0], [-2.0, 0.4], [3.0, 15.0], [0.0, 3.0], [0.2, 1.0]]
 theta_samples = []
 for bounds in theta_range:
     lower_bound, upper_bound = bounds
-    Psamples = np.linspace(lower_bound, upper_bound, nwalkers)
-    np.random.shuffle(Psamples)
-    theta_samples.append(Psamples)
+    Msamples = np.linspace(lower_bound, upper_bound, nwalkers)
+    np.random.shuffle(Msamples)
+    theta_samples.append(Msamples)
 p0 = np.array(theta_samples).T
 
 # %%
 likelihood_inst = h2p_cmd_inst
+ndim = 5
+nwalkers = 50
 with Pool(10) as pool:
     sampler = emcee.EnsembleSampler(
         nwalkers, ndim, lnlike_5p,
         pool=pool,
-        args=(step, Pisoc_inst, likelihood_inst, Psynstars_inst, n_stars, Pobservation, 'MW', 5)
+        args=(step, Misoc_inst, likelihood_inst, Msynstars_inst, n_stars, Mobservation, 'MW', 5)
     )
     nburn = 2000
     p1, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
