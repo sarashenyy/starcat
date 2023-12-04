@@ -66,8 +66,21 @@ class CSSTsim(Photerr):
             skyPix = calculateSkyPix(fil=self.bands[i], zodi_mag=21.0)
             mag_syn = np.array(sample_syn[self.bands[i]])
             sn = calculateSN(sky=skyPix, ex_num=ex_num, t=ex_time, fil=self.bands[i], ABmag=mag_syn)
-            mag_err = 1 / sn * 2.5 / np.log(10)
+            mag_err = (1 / sn) * (2.5 / np.log(10))  # ln(10)
+
             standard = np.random.normal(0, 1, size=num)
+
+            # max_err = 2   # if standard > 2 * scale
+            # condition = np.abs(standard) > max_err
+            # indices = np.where(condition)[0]
+            # new_standard = np.random.normal(0, 1, size=len(indices))
+            # standard[indices] = new_standard
+
+            # lower, upper = -2.0, 2.0
+            # mu, sigma = 0, 1
+            # standard = stats.truncnorm.rvs(
+            #     (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=num)
+
             sample_syn[self.bands[i]] = mag_syn + mag_err * standard
             sample_syn['%s_err' % self.bands[i]] = mag_err * standard
         return sample_syn
