@@ -333,7 +333,7 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_star
 
 
 @log_time
-def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, times=1):
+def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, position, times=1):
     # try:
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage, mh, dm, Av, fb = theta
@@ -346,14 +346,17 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     # !                               Li Lu MIMO & PhD thesis
     # !      dm(for Gaia) range [3, 15] Li Lu MIMO & PhD thesis
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
-    # Gaia MW
-    if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-            (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
+    if position == 'MW':  # Gaia MW
+        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))
+    elif position == 'LG':  # CSST Local Group
+        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+                     (dm < 15.) or (dm > 28.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))
+    else:
+        condition = False
+
+    if condition:
         return -np.inf
-    # CSST M31
-    # if ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-    #         (dm < 20.) or (dm > 28.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.)):
-    #     return -np.inf
     else:
         if times == 1:
             sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
