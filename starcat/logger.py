@@ -3,7 +3,7 @@ import os
 import time
 from functools import wraps
 
-enable_logging = True
+enable_logging = False
 # log_file_path = '/home/shenyueyue/Projects/starcat/log/runtime.log'  # ranku & dandelion
 log_file_path = '/Users/sara/PycharmProjects/starcat/log/runtime.log'  # local
 

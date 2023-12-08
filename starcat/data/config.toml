@@ -13,7 +13,6 @@ data_dir = '/Users/sara/PycharmProjects/starcat/data/' # local
 bands = ['Gmag', 'BPmag', 'RPmag']
 bands_err = ['G_err', 'BP_err', 'RP_err']
 prob = 'Prob'
-
 mag = ['Gmag']
 color = [['BPmag', 'RPmag']]
 
@@ -55,7 +54,6 @@ mini = 'Mini'
 #bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
 #bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
 bands = ['g', 'i']
-bands_err = ['g_err', 'i_err']
 # band_max = instrument limit + 0.5(consider faint binary) ;
 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
 #band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]

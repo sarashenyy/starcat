@@ -351,7 +351,7 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
                      (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))
     elif position == 'LG':  # CSST Local Group
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 15.) or (dm > 28.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))
+                     (dm < 15.) or (dm > 19.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))  # dm > 28.
     else:
         condition = False
 

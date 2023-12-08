@@ -85,6 +85,9 @@ class SynStars(object):
         # !step 2: add distance modulus and Av, make observed iso
         isoc_new = self.get_observe_isoc(isoc, dm, Av)
 
+        if isoc_new is False:  # isoc_new cannot be observed
+            return False
+
         # ?inspired by batch rejection sampling
         samples = pd.DataFrame()
         accepted = 0
@@ -121,35 +124,36 @@ class SynStars(object):
             #     for mag_col, band_max_val in zip(self.mag, self.band_max_obs):
             #         sample_syn = sample_syn[sample_syn[mag_col] <= band_max_val]
 
-            if self.photsys == 'CSST':  # and len(self.bands) != 2
-                # condition为所有波段都暗于极限星等的星，将之丢弃
-                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
-                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
-                    cond = sample_syn[b] > b_max
-                    condition = condition & cond
-
-            elif self.photsys == 'gaiaDR3':  # or len(self.bands) == 2
+            if self.photsys == 'gaiaDR3' or len(self.bands) == 2:  # or len(self.bands) == 2
                 # condition为只要有一个波段暗于极限星等，就把它丢弃
                 condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
                 for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
                     cond = sample_syn[b] >= b_max
                     condition = condition | cond
 
+            else:  # self.photsys == 'CSST'
+                # condition为所有波段都暗于极限星等的星，将之丢弃
+                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                    cond = sample_syn[b] > b_max
+                    condition = condition & cond
+
             sample_syn = sample_syn[~condition].reset_index(drop=True)
             samples = pd.concat([samples, sample_syn], ignore_index=True)
             accepted += len(sample_syn)
 
             # dynamically adjusting batch_size
-            if self.photsys == 'CSST':
-                if accepted < n_stars:
-                    remain = n_stars - accepted
-                    batch_size = int(remain * best_rate)
-                    total_size += batch_size
-            elif self.photsys == "gaiaDR3":
+            if self.photsys == "gaiaDR3" or len(self.bands) == 2:
                 if accepted < n_stars:
                     # remain = n_stars - accepted
                     # batch_size = int(remain * best_rate)
                     total_size += batch_size
+            else:  # self.photsys == 'CSST'
+                if accepted < n_stars:
+                    remain = n_stars - accepted
+                    batch_size = int(remain * best_rate)
+                    total_size += batch_size
+
             test_sample_time += 1
             # rejection_rate = 1 - len(sample_syn) / batch_size
             # if rejection_rate > 0.2:
@@ -332,6 +336,8 @@ class SynStars(object):
             l, w, c = self.ext_coefs[_]
             #    sample_syn[_] += dm
             isoc_new[self.bands[_]] = isoc[self.bands[_]] + dm + c * Av
+
+            # if np.where(isoc_new[self.bands[_]] < self.band_max_obs)[0]
         return isoc_new
 
 # def coefs_CSST(band):
