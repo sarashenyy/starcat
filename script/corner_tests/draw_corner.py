@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import gridspec
 
+plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
+
 
 def draw_corner(truth, parameters, ln_joint_distribution, label, info, savefig_path):
     # * NOTE correction, make max(ln_joint_distribution)=0
