@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from script.widgets import read_sample_obs
 from starcat import (Parsec, Isoc, IMF, BinMS, BinSimple,
-                     GaiaEDR3, Hist2Point4CMD, SynStars, cmd
+                     GaiaDR3, Hist2Point4CMD, SynStars, cmd
                      )
 
 sample_obs2, med_nobs2 = read_sample_obs('melotte_22_dr2', 'gaiaDR2')
@@ -19,11 +19,11 @@ imf = IMF('kroupa01')
 binmethod = BinSimple()
 binmethod_ms = BinMS()
 
-photerr2 = GaiaEDR3('parsec', med_nobs2)
+photerr2 = GaiaDR3('parsec', med_nobs2)
 likelihoodfunc2 = Hist2Point4CMD('parsec', 'gaiaDR2', 50)
 synstars2 = SynStars('parsec', 'gaiaDR2', imf, n_stars, binmethod, photerr2)
 
-photerr3 = GaiaEDR3('parsec', med_nobs3)
+photerr3 = GaiaDR3('parsec', med_nobs3)
 likelihoodfunc3 = Hist2Point4CMD('parsec', 'gaiaEDR3', 50)
 synstars3 = SynStars('parsec', 'gaiaEDR3', imf, n_stars, binmethod, photerr3)
 

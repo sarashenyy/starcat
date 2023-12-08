@@ -5,7 +5,7 @@ from starcat import (Parsec, Isoc, IMF, config,
                      MagError,
                      SynStars
                      )
-from starcat.photerr import GaiaEDR3
+from starcat.photerr import GaiaDR3
 
 
 def read_sample_obs(filename, photsys):
@@ -33,7 +33,7 @@ def get_sample_syn(filename, photsyn, n_stars):
     imf = IMF('kroupa01')
     binmethod = BinSimple()
 
-    photerr3 = GaiaEDR3('parsec', med_nobs3)
+    photerr3 = GaiaDR3('parsec', med_nobs3)
     synstars3 = SynStars('parsec', photsyn, imf, n_stars, binmethod, photerr3)
 
     sample_syn = synstars3(theta, step, isoc)

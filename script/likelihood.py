@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from script.widgets import read_sample_obs
-from starcat import (GaiaEDR3, Parsec,
+from starcat import (GaiaDR3, Parsec,
                      BinSimple, Hist2Point4CMD,
                      Hist2Hist4CMD, Isoc, IMF, SynStars, lnlike_2p)
 from starcat.test import likelihood_test
@@ -23,7 +23,7 @@ def test_randomness(theta, n_stars, step, times, likelihoodfunc):
     imf = IMF('chabrier03')
     binmethod = BinSimple()
 
-    photerr3 = GaiaEDR3('parsec', med_nobs3)
+    photerr3 = GaiaDR3('parsec', med_nobs3)
 
     synstars3 = SynStars('parsec', 'gaiaEDR3', imf, n_stars, binmethod, photerr3)
 
@@ -82,7 +82,7 @@ parsec = Parsec()
 isoc = Isoc(parsec)
 imf = IMF('chabrier03')
 binmethod = BinSimple()
-photerr = GaiaEDR3('parsec', med_nobs)
+photerr = GaiaDR3('parsec', med_nobs)
 # NOTE! changeable, Hist2Hist or Hist2Point
 likelihoodfunc = Hist2Point4CMD('parsec', 'gaiaEDR3', 30)
 synstars = SynStars('parsec', 'gaiaEDR3', imf, n_stars, binmethod, photerr)
