@@ -20,6 +20,12 @@ color = [['BPmag', 'RPmag']]
 mag = ['g']
 color = [['g', 'i']]
 
+[observation.HSTWFC3]
+bands = ['F336W', 'F814W']
+bands_err = ['F336W_err', 'F814W_err']
+mag = ['F814W']
+color = [['F336W', 'F814W']]
+
 
 
 # model data details
@@ -94,6 +100,23 @@ extinction_coefs = [
 ]
 mag = ['G']
 color = [['BP', 'RP']]
+
+
+[mist.HSTWFC3]
+isoc_dir = 'isochrones/MIST/HSTWFC3/'
+# column name in MIST
+bands_isoc = ['WFC3_UVIS_F336W', 'WFC3_UVIS_F814W']
+mini = 'initial_mass'
+# ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
+bands = ['F336W', 'F814W']
+band_max = [22.0, 21.0]
+# given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+extinction_coefs = [
+    [3358.61, 512.0, 1.67521], # F336W
+    [8058.20, 1541.0, 0.59918], # F814W
+]
+mag = ['F814W']
+color = [['F336W', 'F814W']]
 
 #
 #[mist.csst]
