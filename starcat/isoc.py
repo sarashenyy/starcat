@@ -228,8 +228,8 @@ class Parsec(IsocModel):
             isochrone = isochrone[0:-1].to_pandas()
             joblib.dump(isochrone, isoc_path)
 
-        # label: 0=PMS, 1=MS, 2=SGB, 3=RGB
-        isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 3)]
+        # label: 0=PMS, 1=MS, 2=SGB, 3=RGB, (4,5,6)=different stages of CHEB
+        isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 6)]
         useful_columns = [mini] + bands_isoc
         try:
             isoc = isochrone[useful_columns]
@@ -337,8 +337,8 @@ class MIST(IsocModel):
         else:
             print(f'please download logage={logage:+.2f}, [M/H]={mh:+.2f}')
 
-        # phase: -1=PMS, 0=MS, 2=RGB
-        isochrone = isochrone[(isochrone['phase'] >= -1) & (isochrone['phase'] <= 2)]
+        # phase: -1=PMS, 0=MS, 2=RGB, 3=CHeB
+        isochrone = isochrone[(isochrone['phase'] >= -1) & (isochrone['phase'] <= 3)]
         useful_columns = [mini] + bands_isoc
         try:
             isoc = isochrone[useful_columns]
