@@ -338,6 +338,7 @@ def define_secmass_simple(isoc, model, photsyn):
         if not filtered_isoc.empty:
             aux_min = min(filtered_isoc[mini])
             aux_list.append(aux_min)
-    masssec_min = min(aux_list)
+    # masssec_min = min(aux_list)
+    masssec_min = 0.1
 
     return masssec_min, masssec_max
