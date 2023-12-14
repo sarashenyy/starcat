@@ -241,7 +241,7 @@ with Pool(10) as pool:
         pool=pool,
         args=(step, isoc_inst, likelihood_inst, synstars_inst, n_stars, observation, 'LG', 5)
     )
-    nburn = 3500
+    nburn = 2000
     pos, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
 
     # sampler.reset()
@@ -260,8 +260,8 @@ max_prob_index = np.argmax(ln_prob)
 max_prob_sample = samples[max_prob_index]
 
 fig = corner.corner(
-    # sampler.get_chain(discard=500, thin=10, flat=True),
-    samples,
+    sampler.get_chain(discard=1500, thin=10, flat=True),
+    # samples,
     labels=['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$'],
     truths=theta,
     quantiles=[0.16, 0.5, 0.84],
@@ -270,6 +270,16 @@ fig = corner.corner(
     # title_fmt='.2f'
 )
 fig.show()
+
+# Extract the axes
+axes = np.array(fig.axes).reshape((ndim, ndim))
+
+# Loop over the diagonal
+title = []
+for i in range(ndim):
+    ax = axes[i, i]
+    aux = ax.get_title()
+    title.append(aux)
 
 labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$']
 samples = sampler.get_chain()
@@ -280,3 +290,36 @@ for i in range(ndim):
     ax.set_ylabel(labels[i])
 axes[-1].set_xlabel('step number')
 fig.show()
+
+# %%
+import pygtc
+
+plt.style.use('default')
+truths = [8.35, -0.5, 18.2, 0.45, None]
+paramRanges = ((7.2, 8.8), (-0.7, -0.3), (17.6, 19), (0., 1.2), (0.45, 1))
+paramNames = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$']
+truthColors = ['#FF8000', '#FF8000', '#FF8000']
+GTC = pygtc.plotGTC(chains=sampler.flatchain,
+                    paramNames=paramNames,
+                    truths=truths,
+                    nContourLevels=2,
+                    # sigmaContourLevels=True,
+                    paramRanges=paramRanges,
+                    truthColors=truthColors,
+                    nBins=30,
+                    figureSize='MNRAS_page')
+
+# Extract the axes
+axes = np.array(GTC.axes)
+
+# check axes index
+# for i in range(len(axes)):
+#     ax = axes[i]
+#     ax.text(0.5, 0.5, f'{i}', transform=ax.transAxes)
+# Loop over the diagonal
+for i in range(ndim):
+    j = len(axes) - ndim + i
+    ax = axes[j]
+    ax.set_title(f'   {title[i]}', fontsize=8)
+# GTC.show()
+GTC.savefig('fullGTC_ngc1866.pdf', bbox_inches='tight')

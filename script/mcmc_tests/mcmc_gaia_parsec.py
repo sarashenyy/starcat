@@ -76,6 +76,7 @@ Psamples, _, _, _, _, _ = Psynstars_inst(theta, n_stars, Pisoc_inst, test=True, 
 Msamples, _, _, _, _, _ = Msynstars_inst(theta, n_stars, Misoc_inst, test=True, figure=True)
 Pobservation = Psamples.rename(columns={'G': 'Gmag', 'BP': 'BPmag', 'RP': 'RPmag'})
 Mobservation = Msamples.rename(columns={'G': 'Gmag', 'BP': 'BPmag', 'RP': 'RPmag'})
+
 # %%
 bins = 50
 h2h_cmd_inst = Hist2Hist4CMD(Pmodel, photsys, bins)
