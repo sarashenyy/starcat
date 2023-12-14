@@ -95,7 +95,7 @@ class SynStars(object):
         # runtime test
         if self.photsys == 'CSST':  # and len(self.bands) != 2
             best_rate = 1.2  # if discard only when all bands ar below magnitude limit
-        elif self.photsys == 'gaiaDR3':  # or len(self.bands) == 2
+        else:  # or len(self.bands) == 2
             best_rate = 2
         batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
@@ -296,6 +296,7 @@ class SynStars(object):
                 aux_min = min(filtered_isoc[self.mini])
                 aux_list.append(aux_min)
         mass_min = min(aux_list)
+        # mass_min = 0.1
 
         return mass_min, mass_max
 
