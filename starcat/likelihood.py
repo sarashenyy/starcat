@@ -414,3 +414,89 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     # except RuntimeWarning:
     #     print(theta)
     #     return -np.inf
+
+
+@log_time
+def lnlike(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, position, times=1):
+    # try:
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    logage, mh, dm, Av, fb, alpha = theta
+    logage_step, mh_step = step
+    logage = round_to_step(logage, logage_step)
+    mh = round_to_step(mh, mh_step)
+    theta = logage, mh, dm, Av, fb, alpha
+    # !NOTE: theta range, dm(LMC,SMC~18.5, M31~24.5)
+    # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
+    # !                               Li Lu MIMO & PhD thesis
+    # !      dm(for Gaia) range [3, 15] Li Lu MIMO & PhD thesis
+    # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
+    if position == 'MW':  # Gaia MW
+        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.) or
+                     (alpha < 1.6) or (alpha > 3.0))
+    elif position == 'LG':  # CSST Local Group
+        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+                     (dm < 15.) or (dm > 19.) or (Av < 0.) or (Av > 2.) or (fb < 0.2) or (fb > 1.) or
+                     (alpha < 1.6) or (alpha > 3.0))  # dm > 28.
+    else:
+        condition = False
+
+    if condition:
+        return -np.inf
+    else:
+        if times == 1:
+            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            if sample_syn is False:
+                # return 1e10
+                return -np.inf
+            else:
+                lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                return lnlike
+            # lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+            # return lnlike
+
+        elif times > 1:
+            # * without acceleration
+            lnlike_list = []
+            for i in range(times):
+                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+                # if sample_syn is False:
+                #     lnlike_one = 1e10
+                # else:
+                #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                lnlike_list.append(lnlike_one)
+            lnlike = np.sum(lnlike_list) / times
+
+            # * acceleration with parallelization
+            # /home/shenyueyue/Packages/miniconda3/envs/mcmc/lib/python3.10/site-packages/joblib/externals/loky/backend
+            # /resource_tracker.py:318: UserWarning: resource_tracker:
+            # There appear to be 278 leaked semlock objects to clean up at shutdown
+            #   warnings.warn('resource_tracker: There appear to be %d '
+
+            # def compute_lnlike_one_iteration(i):
+            #     sample_syn = synstars(theta, isoc, logage_step=logage_step, mh_step=mh_step)
+            #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+            #     return lnlike_one
+            #
+            # lnlike_list = Parallel(n_jobs=-1)(delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+            # # lnlike_list = Parallel(n_jobs=-1, temp_folder='/home/shenyueyue/Projects/starcat/temp_folder')(
+            # #     delayed(compute_lnlike_one_iteration)(i) for i in range(times))
+            # lnlike = np.sum(lnlike_list) / times
+
+            return lnlike
+    # except ZeroDivisionError as e:
+    #     # Handle the division by zero error here
+    #     print(f"!!!!ZeroDivisionError occurred: {e}")
+    #     print(theta)
+    #     # You can add custom handling or return a specific value as needed
+    #     return None  # Or any value that makes sense in your context
+    # import warnings
+    # warnings.filterwarnings("ignore", category=RuntimeWarning)
+    # try:
+    #     sample_syn = synstars(theta, step, isoc)
+    #     lnlike = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+    #     return lnlike
+    # except RuntimeWarning:
+    #     print(theta)
+    #     return -np.inf

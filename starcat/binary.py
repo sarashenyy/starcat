@@ -186,7 +186,7 @@ def add_secmass_MRD(fb, n_stars, sample):
     return sample
 
 
-def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
+def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max, alpha=None):
     """
 
     Parameters
@@ -209,7 +209,8 @@ def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max):
     # np.random.seed(42)
     # # no duplication! np.random.choice() will return duplicate index
     secindex = random.sample(list(sample.index), n_binary)
-    sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min, mass_max=masssec_max)
+    sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min,
+                                                  mass_max=masssec_max, alpha=alpha)
     return sample
 
 

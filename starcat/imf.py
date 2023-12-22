@@ -7,7 +7,7 @@ from .logger import log_time
 
 
 class IMF(object):
-    def __init__(self, type='kroupa01'):
+    def __init__(self, type='salpeter55'):
         """
 
         Parameters

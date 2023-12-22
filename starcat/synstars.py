@@ -67,7 +67,7 @@ class SynStars(object):
             logage_step
             mh_step
         """
-        logage, mh, dm, Av, fb = theta
+        logage, mh, dm, Av, fb, alpha = theta
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
         # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
@@ -104,7 +104,7 @@ class SynStars(object):
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-            sample_syn = self.sample_stars(isoc_new, batch_size, fb)
+            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha)
 
             # !step 4: add photometry error for synthetic sample
             sample_syn = self.photerr.add_syn_photerr(sample_syn)
@@ -300,12 +300,13 @@ class SynStars(object):
 
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, n_stars, fb):
+    def sample_stars(self, isoc, n_stars, fb, alpha=None):
         """
         Create sample of synthetic stars with specified binary method.
 
         Parameters
         ----------
+        alpha : imf slope
         isoc : pd.DataFrame
         n_stars : int
         fb : float
@@ -319,8 +320,8 @@ class SynStars(object):
         mass_min, mass_max = self.define_mass(isoc=isoc)
         # create synthetic sample of length n_stars
         sample_syn = pd.DataFrame(np.zeros((n_stars, 1)), columns=['mass_pri'])
-        sample_syn['mass_pri'] = self.imf.sample(n_stars=n_stars, mass_min=mass_min, mass_max=mass_max)
-
+        sample_syn['mass_pri'] = self.imf.sample(n_stars=n_stars, mass_min=mass_min,
+                                                 mass_max=mass_max, alpha=alpha)
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
             fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys
