@@ -60,16 +60,26 @@ class IMF(object):
         # x = np.linspace(mass_min, mass_max, 10000)
         # y = self.imf(x)a
         # plt.loglog(x, y, label=self.type)  # logarithmic
-        bins = 50
-        plt.hist(np.log10(mass.loc[:, 'chabrier03']), bins, label='Chabrier03', histtype='step')
-        plt.hist(np.log10(mass.loc[:, 'kroupa01']), bins, label='Kroupa01', histtype='step')
-        plt.hist(np.log10(mass.loc[:, 'salpeter55']), bins, label='Salpeter55', histtype='step')
-        # plt.yscale('log')
-        # plt.xscale('log')
+        bins = 80
+        hist_chabrier, _ = np.histogram(np.log10(mass.loc[:, 'chabrier03']), bins=bins)
+        hist_kroupa, _ = np.histogram(np.log10(mass.loc[:, 'kroupa01']), bins=bins)
+        hist_salpeter, _ = np.histogram(np.log10(mass.loc[:, 'salpeter55']), bins=bins)
+
+        # Define bin centers
+        bin_centers = 0.5 * (_[1:] + _[:-1])
+
+        # Plot histograms as lines with different line styles
+        plt.plot(bin_centers, hist_salpeter, label='Salpeter 1955', linestyle='-', linewidth=2, color='#2ca02c')
+        plt.plot(bin_centers, hist_kroupa, label='Kroupa 2001', linestyle='--', linewidth=2, color='#ff7f0e')
+        plt.plot(bin_centers, hist_chabrier, label='Chabrier 2003', linestyle=':', linewidth=2, color='#1f77b4')
+        plt.ylim(top=0.8e6)
+
+        # Set y-axis ticks in scientific notation
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+
         plt.legend()
-        plt.xlabel(r'log $ m [M_\odot]$')
-        # plt.ylabel(r'log $n$')
-        plt.ylabel(r'$n$')
+        plt.xlabel(r'$\log{m}\ (M_\odot)$')
+        plt.ylabel(r'$N$')
         plt.title('Initial Mass Function (IMF)')
         plt.show()
         return mass
