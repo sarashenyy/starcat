@@ -434,9 +434,12 @@ def lnlike(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, pos
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
                      (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.) or
                      (alpha < 1.6) or (alpha > 3.0))
-    elif position == 'LG':  # CSST Local Group
+    elif position == 'LG':
+        # CSST Local Group
+        # M31:24.47(https://ui.adsabs.harvard.edu/abs/2005MNRAS.356..979M/abstract)
+        # LMC:18.5
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 15.) or (dm > 19.) or (Av < 0.) or (Av > 2.) or (fb < 0.2) or (fb > 1.) or
+                     (dm < 15.) or (dm > 26.) or (Av < 0.) or (Av > 2.) or (fb < 0.2) or (fb > 1.) or
                      (alpha < 1.6) or (alpha > 3.0))  # dm > 28.
     else:
         condition = False
