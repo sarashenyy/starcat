@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from starcat import (Isoc, Parsec, IMF,
-                     BinSimple,
+                     BinMRD,
                      CSSTsim, SynStars,
-                     lnlike_5p, Hist2Hist4CMD, Hist2Point4CMD)
+                     lnlike, Hist2Hist4CMD, Hist2Point4CMD)
 
 # %matplotlib osx
 plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
@@ -16,58 +16,91 @@ plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
 # initialization
 photsys = 'CSST'
 model = 'parsec'
-imf = 'kroupa01'
+imf = 'salpeter55'
 imf_inst = IMF(imf)
 parsec_inst = Parsec()
-binmethod = BinSimple()
+binmethod = BinMRD()
 photerr = CSSTsim(model)
 isoc_inst = Isoc(parsec_inst)
 synstars_inst = SynStars(model, photsys,
                          imf_inst, binmethod, photerr)
 
 # %%
-logage, mh, dm, Av, fb = 8.4, 0.0, 18.5, 0.4, 0.5
-theta = logage, mh, dm, Av, fb
+logage, mh, dm, Av, fb, alpha = 8.4, 0.0, 18.5, 0.4, 0.5, 2.35
+theta = logage, mh, dm, Av, fb, alpha
 n_stars = 1500
 
 samples = synstars_inst(theta, n_stars, isoc_inst)
 observation = samples  # samples[(samples['g'] < 26.0)]  # samples[(samples['g'] < 25.5) & (samples['i'] < 25.5)]
 
 fig, ax = plt.subplots(figsize=(4, 5))
-ax.scatter(observation['g'] - observation['i'], observation['i'], s=3, label='mag=i', alpha=0.5)
-ax.scatter(observation['g'] - observation['i'], observation['g'], s=3, label='mag=g', alpha=0.5)
-ax.set_ylim(max(observation['g']) + 0.2, min(observation['g']) - 0.5)
+bin = observation['mass_sec'].notna()
+c = observation['g'] - observation['i']
+m = observation['i']
+
+ax.scatter(c[bin], m[bin], color='blue', s=5, alpha=0.6, label='binary')
+ax.scatter(c[~bin], m[~bin], color='orange', s=5, alpha=0.6, label='single')
+ax.set_ylim(max(observation['i']) + 0.2, min(observation['i']) - 0.5)
 ax.set_xlim(min(observation['g'] - observation['i']) - 0.2, max(observation['g'] - observation['i']) + 0.2)
 ax.legend()
-ax.set_title(f'logage={logage}, [M/H]={mh}, \n'
-             f'DM={dm}, Av={Av}, fb={fb}')
-ax.set_xlabel('g-i')
-ax.set_ylabel('mag')
+ax.set_title(f'logage={logage}, [M/H]={mh}, DM={dm}, \n'
+             f'Av={Av}, fb={fb}, alpha={alpha}', fontsize=12)
+ax.set_xlabel('g - i')
+ax.set_ylabel('i')
+
 fig.show()
 # %%
 bins = 50
 h2h_cmd_inst = Hist2Hist4CMD(model, photsys, bins)
 h2p_cmd_inst = Hist2Point4CMD(model, photsys, bins)
 
-logage, mh, dm, Av, fb = 8.4, 0.0, 18.5, 0.4, 0.5
-theta = logage, mh, dm, Av, fb
+logage, mh, dm, Av, fb, alpha = 8.4, 0.0, 18.5, 0.4, 0.5, 2.35
+theta = logage, mh, dm, Av, fb, alpha
 step = (0.05, 0.05)  # logage, mh
-n_stars = 10000
+n_syn = 10000
 
-print(lnlike_5p(theta, step, isoc_inst, h2h_cmd_inst, synstars_inst, n_stars, observation, 'LG', 5))
-print(lnlike_5p(theta, step, isoc_inst, h2p_cmd_inst, synstars_inst, n_stars, observation, 'LG', 5))
+samples = synstars_inst(theta, n_syn, isoc_inst)
+
+h2h = lnlike(theta, step, isoc_inst, h2h_cmd_inst, synstars_inst, n_syn, observation, 'LG', 5)
+h2p = lnlike(theta, step, isoc_inst, h2p_cmd_inst, synstars_inst, n_syn, observation, 'LG', 5)
+print(h2h)
+print(h2p)
+
+fig, ax = plt.subplots(figsize=(4, 4))
+bin = samples['mass_sec'].notna()
+c = samples['g'] - samples['i']
+m = samples['i']
+c_obs = observation['g'] - observation['i']
+m_obs = observation['i']
+
+ax.scatter(c[bin], m[bin], color='blue', s=5, alpha=0.6)
+ax.scatter(c[~bin], m[~bin], color='orange', s=5, alpha=0.6)
+ax.scatter(c_obs, m_obs, s=1, color='grey')
+ax.invert_yaxis()
+ax.set_xlim(min(c_obs) - 0.2, max(c_obs) + 0.2)
+ax.set_ylim(max(m_obs) + 0.5, min(m_obs) - 0.5)
+ax.set_title(f'logage={logage}, [M/H]={mh}, DM={dm}, \n'
+             f'Av={Av}, fb={fb}, alpha={alpha}', fontsize=12)
+ax.set_xlabel('g - i')
+ax.set_ylabel('i')
+ax.text(0.6, 0.6, f'H2H={h2h:.2f}', transform=ax.transAxes, fontsize=11)
+ax.text(0.6, 0.5, f'H2P={h2p:.2f}', transform=ax.transAxes, fontsize=11)
+
+fig.show()
 
 # %%
 # p0以真值为均值
-ndim = 5
-nwalkers = 50
+ndim = 6
+nwalkers = 60
 
 # scale = np.array([1, 0.1, 10, 0.5, 0.1])
 # p0 = theta + scale * np.random.randn(nwalkers, ndim)
-labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$']
+labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', 'alpha']
 temp = []
-scale = np.array([1, 0.1, 5, 0.5, 0.1])
-theta_range = [[6.7, 10.0], [-2.0, 0.4], [20.0, 28.0], [0.0, 3.0], [0.2, 1.0]]
+scale = np.array([0.5, 0.1, 1, 0.5, 0.1, 0.2])
+theta_range = [[6.7, 10.0], [-2.0, 0.4],
+               [15.0, 19.0], [0.0, 2.0],
+               [0.2, 1.0], [1.6, 3.0]]
 
 for i in range(ndim):
     aux_list = []
@@ -99,18 +132,17 @@ p0 = np.array(theta_samples).T
 likelihood_inst = h2p_cmd_inst
 with Pool(10) as pool:
     sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, lnlike_5p,
+        nwalkers, ndim, lnlike,
         pool=pool,
         args=(step, isoc_inst, likelihood_inst, synstars_inst, n_stars, observation, 'LG', 5)
     )
-    nburn = 3500
+    nburn = 2000
     pos, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
 
     # sampler.reset()
     # pos, prob, state = sampler.run_mcmc(p1, 10000, progress=True)
 
 # %%
-
 
 # 获取采样样本链和对应的 ln(probability)
 samples = sampler.flatchain
@@ -121,9 +153,10 @@ max_prob_index = np.argmax(ln_prob)
 max_prob_sample = samples[max_prob_index]
 
 fig = corner.corner(
-    sampler.flatchain,
-    labels=['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$'],
-    truths=theta,
+    # sampler.get_chain(discard=1000, thin=10, flat=True),
+    samples,
+    labels=['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', '$\\alpha$'],
+    truths=list(theta),
     quantiles=[0.16, 0.5, 0.84],
     show_titles=True,
     title_kwargs={'fontsize': 18},
@@ -131,7 +164,17 @@ fig = corner.corner(
 )
 fig.show()
 
-labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$']
+# Extract the axes
+axes = np.array(fig.axes).reshape((ndim, ndim))
+
+# Loop over the diagonal
+title = []
+for i in range(ndim):
+    ax = axes[i, i]
+    aux = ax.get_title()
+    title.append(aux)
+
+labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', '$\\alpha$']
 samples = sampler.get_chain()
 fig, axes = plt.subplots(ndim, figsize=(10, 8), sharex=True)
 for i in range(ndim):
@@ -140,3 +183,55 @@ for i in range(ndim):
     ax.set_ylabel(labels[i])
 axes[-1].set_xlabel('step number')
 fig.show()
+
+# %%
+import pygtc
+
+plt.style.use('default')
+truths = list(theta)
+paramRanges = ((7.5, 9.3), (-0.3, 0.15), (17.5, 19.5), (0.2, 0.8), (0.4, 0.9), (2.0, 2.6))
+paramNames = ('log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', '$\\alpha$')
+truthColors = ('#FF8000',
+               '#1F77B4')  # , '#FF8000', '#FF8000'
+GTC = pygtc.plotGTC(chains=sampler.flatchain,
+                    paramNames=paramNames,
+                    truths=truths,
+                    nContourLevels=2,
+                    # sigmaContourLevels=True,
+                    paramRanges=paramRanges,
+                    truthColors=truthColors,
+                    nBins=20,
+                    figureSize='MNRAS_page')
+
+# Extract the axes
+axes = np.array(GTC.axes)
+
+# check axes index
+# for i in range(len(axes)):
+#     ax = axes[i]
+#     ax.text(0.5, 0.5, f'{i}', transform=ax.transAxes)
+# Loop over the diagonal
+# title=['${8.34}_{-0.06}^{+0.01}$',
+#  '${-0.49}_{-0.04}^{+0.04}$',
+#  '${18.20}_{-0.00}^{+0.09}$',
+#  '${0.45}_{-0.00}^{+0.07}$',
+#  '${0.35}_{-0.02}^{+0.02}$',
+#  '${2.47}_{-0.20}^{+0.07}$']
+
+for i in range(ndim):
+    j = len(axes) - ndim + i
+    ax = axes[j]
+    ax.set_title(f'   {title[i]}', fontsize=8)
+GTC.show()
+# GTC.savefig('fullGTC_ngc1866.pdf', bbox_inches='tight')
+
+# %%
+# 初始化一个空数组来存储结果
+result = None
+
+for i in range(ndim):
+    temp = corner.quantile(sampler.flatchain[:, i], [0.16, 0.5, 0.84])
+    if result is None:
+        result = temp
+    else:
+        result = np.vstack((result, temp))
