@@ -2,6 +2,7 @@ import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
+from astropy.stats import knuth_bin_width, bayesian_blocks
 from matplotlib import pyplot as plt
 
 from . import config
@@ -21,7 +22,11 @@ class Hist2Hist4CMD(LikelihoodFunc):
     lnlike(H_{syn},H_{obs}) = -\frac{1}{2}\sum{\frac{(H_{obs}-H_{syn})^2}{H_{obs}+H_{syn}+1}}
     """
 
-    def __init__(self, model, photsys, bins: int, number=1):
+    def __init__(self,
+                 model,
+                 photsys,
+                 bins: int,
+                 number=1):
         self.func = 'hist2hist'
         self.model = model
         self.photsys = photsys
@@ -217,7 +222,13 @@ class Hist2Point4CMD(LikelihoodFunc):
     log(likelihood) =\sum{n_{i}\ln{p_{i}}}
     """
 
-    def __init__(self, model, photsys, bins: int, number=1):
+    def __init__(self,
+                 model,
+                 photsys,
+                 # bins: int,
+                 bin_method,
+                 number=1,
+                 **kwargs):
         """
 
         Parameters
@@ -227,22 +238,46 @@ class Hist2Point4CMD(LikelihoodFunc):
         bins
         number : int
             number of CMDs
+        kwargs :
+            'bins'
         """
         self.func = 'hist2point'
         self.model = model
         self.photsys = photsys
-        self.bins = bins
+        # self.bins = bins
+        self.bin_method = bin_method
         self.number = number
+        if self.bin_method == 'fixed':
+            self.bins = kwargs.get('bins')
 
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
-            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
-                False, sample_obs, self.model, self.photsys, self.bins
-            )
-            h_syn, _, _ = CMD.extract_hist2d(
-                True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
-            )
+
+            if self.bin_method == 'fixed':
+                h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
+                    False, sample_obs, self.model, self.photsys, self.bins
+                )
+                h_syn, _, _ = CMD.extract_hist2d(
+                    True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
+                )
+
+            elif self.bin_method == 'knuth':
+                c_obs, m_obs = CMD.extract_cmd(sample_obs, self.model, self.photsys, False)
+                c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+                bin_edges = [knuth_bin_width(c_obs, return_bins=True, quiet=True)[1],
+                             knuth_bin_width(m_obs, return_bins=True, quiet=True)[1]]
+                h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
+                h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+
+            elif self.bin_method == 'blocks':
+                c_obs, m_obs = CMD.extract_cmd(sample_obs, self.model, self.photsys, False)
+                c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+                bin_edges = [bayesian_blocks(c_obs),
+                             bayesian_blocks(m_obs)]
+                h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
+                h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+
             if np.sum(h_syn) == 0:
                 return -np.inf
             else:
@@ -252,6 +287,8 @@ class Hist2Point4CMD(LikelihoodFunc):
                 h_syn = h_syn / np.sum(h_syn)
                 # lnlike = np.sum(h_obs * np.log10(h_syn))
                 # lnlike = np.sum(h_obs * np.log(h_syn))
+                # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
+                h_obs = h_obs / np.sum(h_obs)
                 lnlike = np.sum(h_obs * np.log(h_syn))
                 # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
                 # delta = np.max(lnlike)
@@ -417,14 +454,66 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
 
 
 @log_time
-def lnlike(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, position, times=1):
-    # try:
+def lnlike(theta_args,
+           step,
+           isoc,
+           likelihoodfunc,
+           synstars,
+           n_stars,
+           sample_obs,
+           position,
+           times=1,
+           **kwargs):
+    """
+
+    Parameters
+    ----------
+    theta_args
+    step
+    isoc
+    likelihoodfunc
+    synstars
+    n_stars
+    sample_obs
+    position
+    times
+    kwargs : 'logage', 'mh', 'dm', 'Av', 'fb', 'alpha'
+
+
+    Returns
+    -------
+
+    """
+
     warnings.filterwarnings("ignore", category=RuntimeWarning)
-    logage, mh, dm, Av, fb, alpha = theta
     logage_step, mh_step = step
-    logage = round_to_step(logage, logage_step)
-    mh = round_to_step(mh, mh_step)
-    theta = logage, mh, dm, Av, fb, alpha
+    if len(theta_args) == 2:  # (fb, Av)
+        logage = kwargs.get('logage')
+        mh = kwargs.get('mh')
+        dm = kwargs.get('dm')
+        Av = kwargs.get('Av')
+        fb, alpha = theta_args
+
+        logage = round_to_step(logage, logage_step)
+        mh = round_to_step(mh, mh_step)
+        theta = logage, mh, dm, Av, fb, alpha
+
+    elif len(theta_args) == 3:  # (logage, DM, Av)
+        mh = kwargs.get('mh')
+        fb = kwargs.get('fb')
+        alpha = kwargs.get('alpha')
+        logage, dm, Av = theta_args
+
+        logage = round_to_step(logage, logage_step)
+        mh = round_to_step(mh, mh_step)
+        theta = logage, mh, dm, Av, fb, alpha
+
+    elif len(theta_args) == 6:
+        logage, mh, dm, Av, fb, alpha = theta_args
+        logage = round_to_step(logage, logage_step)
+        mh = round_to_step(mh, mh_step)
+        theta = logage, mh, dm, Av, fb, alpha
+
     # !NOTE: theta range, dm(LMC,SMC~18.5, M31~24.5)
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
     # !                               Li Lu MIMO & PhD thesis
@@ -439,13 +528,13 @@ def lnlike(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, pos
         # M31:24.47(https://ui.adsabs.harvard.edu/abs/2005MNRAS.356..979M/abstract)
         # LMC:18.5
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 15.) or (dm > 26.) or (Av < 0.) or (Av > 2.) or (fb < 0.2) or (fb > 1.) or
-                     (alpha < 1.6) or (alpha > 3.0))  # dm > 28.
+                     (dm < 15.) or (dm > 22.) or (Av < 0.) or (Av > 2.) or (fb < 0.) or (fb > 1.) or
+                     (alpha < 0.) or (alpha > 5.))  # dm > 28.
     else:
         condition = False
 
     if condition:
-        return -np.inf
+        return -np.infs
     else:
         if times == 1:
             sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
