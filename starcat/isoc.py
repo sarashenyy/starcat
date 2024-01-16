@@ -48,7 +48,7 @@ class Isoc(object):
         """
         return self.model.get_isoc(photsyn=photsyn, **kwargs)
 
-    def get_obsisoc(self, photsyn, dm, Av, **kwargs):
+    def get_obsisoc(self, photsyn, **kwargs):
         return self.model.get_obsisoc(photsyn=photsyn, **kwargs)
 
     def bulk_load(self, photsyn, logage_grid, mh_grid, n_jobs=-1, **kwargs):
@@ -95,7 +95,7 @@ class IsocModel(ABC):
         """
         pass
 
-    def get_obsisoc(self, phoysyn, dm, Av, **kwargs):
+    def get_obsisoc(self, phoysyn, **kwargs):
         pass
 
     def bulk_load(self, photsyn, logage_grid, mh_grid, n_jobs, **kwargs):
@@ -247,11 +247,13 @@ class Parsec(IsocModel):
             print(f'logage={logage}, [M/H]={mh} occurs UnboundLocal Error in getting isochrone.')
             return False
 
-    def get_obsisoc(self, photsyn, dm, Av, **kwargs):
+    def get_obsisoc(self, photsyn, **kwargs):
         source = config.config[self.model][photsyn]
         bands = source['bands']
         ext_coefs = source['extinction_coefs']
 
+        dm = kwargs.get('dm')
+        Av = kwargs.get('Av')
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
         logage = kwargs.get('logage')
