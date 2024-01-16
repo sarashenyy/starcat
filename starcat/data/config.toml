@@ -5,8 +5,10 @@
 # ex. wrong example: example_wrong = [2, 2.4, 2.6]
 #     correct : example_correct = [2.0, 2.4, 2.6]
 
-# data_dir = '/home/shenyueyue/Projects/starcat/data/' # remote
-data_dir = '/Users/sara/PycharmProjects/starcat/data/' # local
+data_dir = 'local' # 'raku' 'dandelion' 'local'
+raku = '/data/share/syy/starcat/' # raku
+dandelion = '/data/syy/starcat/' # dandelion
+local = '/Users/sara/PycharmProjects/starcat/data/' # local
 
 # observation data details
 [observation.gaiaDR3]
@@ -17,7 +19,7 @@ mag = ['Gmag']
 color = [['BPmag', 'RPmag']]
 
 [observation.CSST] # validation
-mag = ['g']
+mag = ['i']
 color = [['g', 'i']]
 
 [observation.HSTWFC3]
@@ -63,7 +65,7 @@ bands = ['g', 'i']
 # band_max = instrument limit + 0.5(consider faint binary) ;
 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
 #band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
-band_max = [25.0, 25.0] # g, i
+band_max = [25.5, 24.0] # g, i
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
 #extinction_coefs = [
 #    [2887.74, 609.0, 1.88462], # NUV
@@ -78,7 +80,7 @@ extinction_coefs = [
     [4811.96, 1357.0, 1.19715], # g
     [7641.61, 1536.0, 0.66204]  # i
 ]
-mag = ['g']
+mag = ['i']
 color = [['g', 'i']]
 
 #label = [0, 1, 2, 3, 4, 5, 6, 7] # label_range <==> phase_range
@@ -111,6 +113,12 @@ mini = 'initial_mass'
 bands = ['F336W', 'F814W']
 band_max = [22.0, 21.0]
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+#extinction_coefs = [
+#    [3358.61, 512.0, 1.67521], # F336W
+#    [4792.33, 1343, 1.20336], # F475W
+#    [5334.57, 1564, 1.04091], # F555W
+#    [8058.20, 1541.0, 0.59918], # F814W
+#]
 extinction_coefs = [
     [3358.61, 512.0, 1.67521], # F336W
     [8058.20, 1541.0, 0.59918], # F814W
