@@ -289,6 +289,12 @@ class Hist2Point4CMD(LikelihoodFunc):
                 # lnlike = np.sum(h_obs * np.log(h_syn))
                 # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
                 h_obs = h_obs / np.sum(h_obs)
+
+                #  Hsyn 归一化到 Hobs
+                # n_syn = len(sample_syn)  # 我发现了盲点！
+                # n_obs = len(sample_obs)
+                # h_syn = h_syn / (n_syn / n_obs)
+
                 lnlike = np.sum(h_obs * np.log(h_syn))
                 # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
                 # delta = np.max(lnlike)
