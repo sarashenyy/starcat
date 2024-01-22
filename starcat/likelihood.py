@@ -1,9 +1,12 @@
+import math
 import warnings
 from abc import ABC, abstractmethod
+from math import comb
 
 import numpy as np
 from astropy.stats import knuth_bin_width, bayesian_blocks
 from matplotlib import pyplot as plt
+from scipy.stats import energy_distance, gaussian_kde
 
 from . import config
 from .cmd import CMD
@@ -16,6 +19,9 @@ class LikelihoodFunc(ABC):
     def eval_lnlike(self, sample_obs, sample_syn):
         pass
 
+    def get_funcname(self):
+        pass
+
 
 class Hist2Hist4CMD(LikelihoodFunc):
     """
@@ -25,23 +31,30 @@ class Hist2Hist4CMD(LikelihoodFunc):
     def __init__(self,
                  model,
                  photsys,
-                 bins: int,
-                 number=1):
+                 bin_method,
+                 number=1,
+                 **kwargs):
         self.func = 'hist2hist'
         self.model = model
         self.photsys = photsys
-        self.bins = bins
         self.number = number
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = kwargs.get('bins')
 
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
-            h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
-                False, sample_obs, self.model, self.photsys, self.bins
-            )
-            h_syn, _, _ = CMD.extract_hist2d(
-                True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
-            )
+            h_syn = None
+            h_obs = None
+            if self.bin_method == 'fixed':
+                h_obs, h_syn = bin_fixed(sample_obs, sample_syn, self.model, self.photsys, self.bins)
+
+            elif self.bin_method == 'knuth':
+                h_obs, h_syn = bin_knuth(sample_obs, sample_syn, self.model, self.photsys)
+
+            elif self.bin_method == 'blocks':
+                h_obs, h_syn = bin_blocks(sample_obs, sample_syn, self.model, self.photsys)
             # TODO: 修改n_syn，此时的长度应该是在sample_obs数据范围内的长度
             # TODO：同时增加对CSST的判断逻辑，对CSST，sample_syn中包含极限星等以下的数据
             # # 画图，显示h_obs与h_syn
@@ -67,7 +80,7 @@ class Hist2Hist4CMD(LikelihoodFunc):
             # cbar_syn = fig.colorbar(im_syn, ax=ax, label='Count (Synthetic)')
             #
             # plt.show()
-            if np.sum(h_syn) == 0:
+            if h_syn is None or np.sum(h_syn) == 0:
                 return -np.inf
             else:
                 n_syn = len(sample_syn)  # 我发现了盲点！是盲点吗？？
@@ -138,6 +151,10 @@ class Hist2Hist4CMD(LikelihoodFunc):
             # delta = np.max(lnlike)
             # lnlike = lnlike - delta
             return lnlike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
 
 
 # class Hist2Hist4Bands(LikelihoodFunc):
@@ -214,6 +231,186 @@ class Hist2Hist4CMD(LikelihoodFunc):
 #             band_lnlikes.append(aux)
 #         lnlike = np.sum(band_lnlikes)
 #         return lnlike
+class SahaW(LikelihoodFunc):
+    def __init__(self,
+                 model,
+                 photsys,
+                 bin_method,
+                 **kwargs):
+        self.func = 'SahaWstatistic'
+        self.model = model
+        self.photsys = photsys
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = kwargs.get('bins')
+
+    def eval_lnlike(self, sample_obs, sample_syn):
+        h_syn = None
+        h_obs = None
+        if self.bin_method == 'fixed':
+            h_obs, h_syn = bin_fixed(sample_obs, sample_syn, self.model, self.photsys, self.bins)
+
+        elif self.bin_method == 'knuth':
+            c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+            h_obs, h_syn = bin_knuth(c_obs, m_obs, c_syn, m_syn)
+
+        elif self.bin_method == 'blocks':
+            c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+            h_obs, h_syn = bin_blocks(c_obs, m_obs, c_syn, m_syn)
+
+        if h_syn is None or np.sum(h_syn) == 0:
+            return -np.inf
+        else:
+            arr_obs = h_obs.ravel()
+            arr_syn = h_syn.ravel()
+            arr_obs = np.round(arr_obs).astype(int)
+            arr_syn = np.round(arr_syn).astype(int)
+
+            logw_list = []
+            for i in range(len(arr_obs)):
+                temp_c = comb(arr_obs[i] + arr_syn[i], arr_obs[i])
+                temp_logc = math.log10(temp_c)
+                logw_list.append(temp_logc)
+
+        # loglike = -sum(logw_list)
+        w = sum(logw_list)
+        loglike = -0.01 * w
+        return loglike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+
+class EnergyDistance(LikelihoodFunc):
+    def __init__(self,
+                 model,
+                 photsys,
+                 bin_method,
+                 **kwargs):
+        self.func = 'EnergyDistance'
+        self.model = model
+        self.photsys = photsys
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = kwargs.get('bins')
+
+    def eval_lnlike(self, sample_obs, sample_syn):
+        h_syn = None
+        h_obs = None
+        if self.bin_method == 'fixed':
+            h_obs, h_syn = bin_fixed(sample_obs, sample_syn, self.model, self.photsys, self.bins)
+
+        elif self.bin_method == 'knuth':
+            c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+            h_obs, h_syn = bin_knuth(c_obs, m_obs, c_syn, m_syn)
+
+        elif self.bin_method == 'blocks':
+            c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+            h_obs, h_syn = bin_blocks(c_obs, m_obs, c_syn, m_syn)
+
+        if h_syn is None or np.sum(h_syn) == 0:
+            return -np.inf
+        else:
+            h_obs = h_obs / np.sum(h_obs)
+            h_syn = h_syn / np.sum(h_syn)
+            arr_obs = h_obs.ravel()
+            arr_syn = h_syn.ravel()
+            dis = energy_distance(arr_obs, arr_syn)
+            lnlike = -1. * dis
+            return lnlike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+
+class DeltaCMD(LikelihoodFunc):
+
+    def __init__(self,
+                 model,
+                 photsys,
+                 bin_method,
+                 **kwargs):
+        self.func = 'DeltaCMD'
+        self.model = model
+        self.photsys = photsys
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = kwargs.get('bins')
+
+    def eval_lnlike(self, sample_obs, sample_syn):
+        source = config.config[self.model][self.photsys]
+        m_obs = sample_obs[source['mag']].values.ravel()
+        dc_obs = sample_obs['delta_c'].values.ravel()
+        m_syn = sample_syn[source['mag']].values.ravel()
+        dc_syn = sample_syn['delta_c'].values.ravel()
+
+        h_syn = None
+        h_obs = None
+        if self.bin_method == 'knuth':
+            h_obs, h_syn = bin_knuth(dc_obs, m_obs, dc_syn, m_syn)
+
+        elif self.bin_method == 'blocks':
+            h_obs, h_syn = bin_blocks(dc_obs, m_obs, dc_syn, m_syn)
+
+        if h_syn is None or np.sum(h_syn) == 0:
+            return -np.inf
+        else:
+            # h_syn = h_syn / np.sum(h_syn)
+            epsilon = 1e-20
+            h_syn = h_syn + epsilon
+            h_syn = h_syn / np.sum(h_syn)
+            # lnlike = np.sum(h_obs * np.log10(h_syn))
+            # lnlike = np.sum(h_obs * np.log(h_syn))
+            # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
+            # ! 如果不把 H_obs 也归一化，lnlike负太大，导致 exp(-lnlike)=0, 是均为0！
+            h_obs = h_obs / np.sum(h_obs)
+
+            #  Hsyn 归一化到 Hobs, 返回 nan
+            # n_syn = len(sample_syn)  # 我发现了盲点！
+            # n_obs = len(sample_obs)
+            # h_syn = h_syn / (n_syn / n_obs)
+
+            lnlike = np.sum(h_obs * np.log(h_syn))
+            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+            # delta = np.max(lnlike)
+            # lnlike = lnlike - delta
+            return lnlike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+
+class GaussianKDE(LikelihoodFunc):
+    def __init__(self,
+                 model,
+                 photsys,
+                 # bin_method,
+                 **kwargs):
+        self.func = 'GaussianKDE'
+        self.model = model
+        self.photsys = photsys
+        # self.bin_method = bin_method
+        # if self.bin_method == 'fixed':
+        #     self.bins = kwargs.get('bins')
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+    def eval_lnlike(self, sample_obs, sample_syn):
+        c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+        syn_data = np.vstack((c_syn, m_syn))
+        kde = gaussian_kde(syn_data)
+
+        obs_data = np.vstack((c_obs, m_obs))
+        pdf_obs = kde(obs_data)
+        lnlike = np.sum(np.log(pdf_obs)) / 1150
+        # n=1500 : 1150
+        lnlike = lnlike + 1150
+        return lnlike
 
 
 class Hist2Point4CMD(LikelihoodFunc):
@@ -241,7 +438,7 @@ class Hist2Point4CMD(LikelihoodFunc):
         kwargs :
             'bins'
         """
-        self.func = 'hist2point'
+        self.func = 'Hist2Point'
         self.model = model
         self.photsys = photsys
         # self.bins = bins
@@ -253,44 +450,36 @@ class Hist2Point4CMD(LikelihoodFunc):
     @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
-
+            h_syn = None
+            h_obs = None
             if self.bin_method == 'fixed':
-                h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
-                    False, sample_obs, self.model, self.photsys, self.bins
-                )
-                h_syn, _, _ = CMD.extract_hist2d(
-                    True, sample_syn, self.model, self.photsys, bins=(xe_obs, ye_obs)
-                )
+                h_obs, h_syn = bin_fixed(sample_obs, sample_syn, self.model, self.photsys, self.bins)
 
             elif self.bin_method == 'knuth':
-                c_obs, m_obs = CMD.extract_cmd(sample_obs, self.model, self.photsys, False)
-                c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
-                bin_edges = [knuth_bin_width(c_obs, return_bins=True, quiet=True)[1],
-                             knuth_bin_width(m_obs, return_bins=True, quiet=True)[1]]
-                h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
-                h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+                c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+                h_obs, h_syn = bin_knuth(c_obs, m_obs, c_syn, m_syn)
 
             elif self.bin_method == 'blocks':
-                c_obs, m_obs = CMD.extract_cmd(sample_obs, self.model, self.photsys, False)
-                c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
-                bin_edges = [bayesian_blocks(c_obs),
-                             bayesian_blocks(m_obs)]
-                h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
-                h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+                c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+                h_obs, h_syn = bin_blocks(c_obs, m_obs, c_syn, m_syn)
 
-            if np.sum(h_syn) == 0:
+            if h_syn is None or np.sum(h_syn) == 0:
                 return -np.inf
             else:
                 # h_syn = h_syn / np.sum(h_syn)
-                epsilon = 1e-20
-                h_syn = h_syn + epsilon
+                epsilon = 1e-8  # 1e-20
+                # h_syn = h_syn + epsilon
                 h_syn = h_syn / np.sum(h_syn)
+                # h_syn = h_syn + epsilon
+                h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
                 # lnlike = np.sum(h_obs * np.log10(h_syn))
                 # lnlike = np.sum(h_obs * np.log(h_syn))
                 # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
-                h_obs = h_obs / np.sum(h_obs)
+                # ! 如果不把 H_obs 也归一化，lnlike负太大，导致 exp(-lnlike)=0, 是均为0！
+                # ! 不能对 H_obs 做归一化，没道理！
+                # h_obs = h_obs / np.sum(h_obs)
 
-                #  Hsyn 归一化到 Hobs
+                #  Hsyn 归一化到 Hobs, 返回 nan
                 # n_syn = len(sample_syn)  # 我发现了盲点！
                 # n_obs = len(sample_obs)
                 # h_syn = h_syn / (n_syn / n_obs)
@@ -340,6 +529,10 @@ class Hist2Point4CMD(LikelihoodFunc):
             # delta = np.max(lnlike)
             # lnlike = lnlike - delta
             return lnlike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
 
 
 def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs):
@@ -402,7 +595,7 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
         return -np.inf
     else:
         if times == 1:
-            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            sample_syn, isoc_obs = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             if sample_syn is False:
                 # return 1e10
                 return -np.inf
@@ -490,7 +683,6 @@ def lnlike(theta_args,
     -------
 
     """
-
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     logage_step, mh_step = step
     if len(theta_args) == 2:  # (fb, Av)
@@ -527,8 +719,8 @@ def lnlike(theta_args,
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if position == 'MW':  # Gaia MW
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.) or
-                     (alpha < 1.6) or (alpha > 3.0))
+                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.1) or (fb > 1.) or
+                     (alpha < 0.5) or (alpha > 5.0))
     elif position == 'LG':
         # CSST Local Group
         # M31:24.47(https://ui.adsabs.harvard.edu/abs/2005MNRAS.356..979M/abstract)
@@ -543,7 +735,12 @@ def lnlike(theta_args,
         return -np.infs
     else:
         if times == 1:
-            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            if likelihoodfunc.get_funcname() == 'DeltaCMD':
+                sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
+                                                          mh_step=mh_step)
+            else:
+                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+
             if sample_syn is False:
                 # return 1e10
                 return -np.inf
@@ -557,13 +754,18 @@ def lnlike(theta_args,
             # * without acceleration
             lnlike_list = []
             for i in range(times):
-                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+                if likelihoodfunc.get_funcname() == 'DeltaCMD':
+                    sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
+                                                              mh_step=mh_step)
+                else:
+                    sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
                 # if sample_syn is False:
                 #     lnlike_one = 1e10
                 # else:
                 #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
                 lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
                 lnlike_list.append(lnlike_one)
+
             lnlike = np.sum(lnlike_list) / times
 
             # * acceleration with parallelization
@@ -598,3 +800,48 @@ def lnlike(theta_args,
     # except RuntimeWarning:
     #     print(theta)
     #     return -np.inf
+
+
+def get_CMD(sample_obs, sample_syn, model, photsys):
+    c_obs, m_obs = CMD.extract_cmd(sample_obs, model, photsys, False)
+    c_syn, m_syn = CMD.extract_cmd(sample_syn, model, photsys, True)
+    return c_obs, m_obs, c_syn, m_syn
+
+
+def bin_fixed(sample_obs, sample_syn, model, photsys, bins):
+    h_obs, xe_obs, ye_obs = CMD.extract_hist2d(
+        False, sample_obs, model, photsys, bins
+    )
+    h_syn, _, _ = CMD.extract_hist2d(
+        True, sample_syn, model, photsys, bins=(xe_obs, ye_obs)
+    )
+    return h_obs, h_syn
+
+
+def bin_knuth(c_obs, m_obs, c_syn, m_syn):
+    """
+    NOT recommand!!
+    Parameters
+    ----------
+    sample_obs
+    sample_syn
+    model
+    photsys
+
+    Returns
+    -------
+
+    """
+    bin_edges = [knuth_bin_width(c_obs, return_bins=True, quiet=True)[1],
+                 knuth_bin_width(m_obs, return_bins=True, quiet=True)[1]]
+    h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
+    h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+    return h_obs, h_syn
+
+
+def bin_blocks(c_obs, m_obs, c_syn, m_syn):
+    bin_edges = [bayesian_blocks(c_obs),
+                 bayesian_blocks(m_obs)]
+    h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
+    h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+    return h_obs, h_syn
