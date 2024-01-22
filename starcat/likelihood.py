@@ -584,10 +584,10 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if position == 'MW':  # Gaia MW
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.2) or (fb > 1.))
+                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.0) or (fb > 1.))
     elif position == 'LG':  # CSST Local Group
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 15.) or (dm > 19.) or (Av < 0.) or (Av > 2.) or (fb < 0.2) or (fb > 1.))  # dm > 28.
+                     (dm < 15.) or (dm > 19.) or (Av < 0.) or (Av > 2.) or (fb < 0.0) or (fb > 1.))  # dm > 28.
     else:
         condition = False
 
