@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.gridspec import GridSpec
+from scipy.interpolate import interp1d
 
-from . import config, IMF
+from . import config, IMF, CMD
 from .isoc import Isoc
 from .logger import log_time
 
@@ -38,10 +39,10 @@ class SynStars(object):
         self.bands = source['bands']
         self.band_max_obs = source['band_max']
         self.band_max_syn = [x + 0.5 for x in source['band_max']]
-        self.bands = source['bands']
         self.mini = source['mini']
         self.ext_coefs = source['extinction_coefs']
-        # self.mag = source['mag']
+        self.mag = source['mag']
+        self.color = source['color']
 
     @log_time
     def __call__(self, theta, n_stars, variable_type_isoc, test=False, figure=False, **kwargs):
@@ -256,6 +257,143 @@ class SynStars(object):
 
         else:
             return samples
+
+    def delta_color_samples(self, theta, n_stars, variable_type_isoc, **kwargs):
+        """
+        Make synthetic cluster sample, considering binary method and photmetry error.
+        Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
+        BinMethod : BinMS(), BinSimple()
+        Photerr : GaiaEDR3()
+        Isoc(Parsec()) / Isoc(MIST()) : optinal
+
+        Parameters
+        ----------
+        theta : tuple
+            logage, mh, dm, Av, fb
+        n_stars : int
+        step : tuple
+            logage_step, mh_step
+        isoc :
+            starcat.Isoc() or pd.DataFRame, optional
+            - starcat.Isoc() : Isoc(Parsec()), Isoc(MIST()). Default is None.
+            - pd.DataFrame : isoc [phase, mini, [bands]]
+        *kwargs :
+            logage_step
+            mh_step
+        """
+        logage, mh, dm, Av, fb, alpha = theta
+        logage_step = kwargs.get('logage_step')
+        mh_step = kwargs.get('mh_step')
+        # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
+        if isinstance(variable_type_isoc, pd.DataFrame):
+            isoc = variable_type_isoc
+        elif isinstance(variable_type_isoc, Isoc):
+            isoc = variable_type_isoc.get_isoc(
+                self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
+            )
+            if isoc is False:  # get_isoc() raise Error
+                return False
+        else:
+            print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
+
+        # !step 2: add distance modulus and Av, make observed iso
+        isoc_new = self.get_observe_isoc(isoc, dm, Av)
+
+        if isoc_new is False:  # isoc_new cannot be observed
+            return False
+
+        # ?inspired by batch rejection sampling
+        samples = pd.DataFrame()
+        accepted = 0
+        # batch_size = int(n_stars * 10)
+        # runtime test
+        if self.photsys == 'CSST':  # and len(self.bands) != 2
+            best_rate = 1.2  # if discard only when all bands ar below magnitude limit
+        else:  # or len(self.bands) == 2
+            best_rate = 2
+        batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
+        test_sample_time = 0
+        total_size = batch_size
+
+        while accepted < n_stars:
+            # !step 3: sample isochrone with specified Binary Method
+            #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
+            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha)
+
+            # !step 4: add photometry error for synthetic sample
+            sample_syn = self.photerr.add_syn_photerr(sample_syn)
+
+            # !step 5: (deleted!) 1. discard nan&inf values primarily due to failed interpolate
+            # !        2. 只有在所有波段都暗于极限星等时才丢弃！即只有当一颗星在所有波段都不可见时才丢弃，只要这颗星在任一波段可见，则保留。
+            # !           意味着最终返回的 samples[band] 中包含暗于该波段极限星等的值
+            # # 1. discard nan&inf values primarily due to failed interpolate
+            # columns_to_check = self.bands
+            # sample_syn = sample_syn.dropna(subset=columns_to_check, how='any').reset_index(drop=True)
+            # for column in columns_to_check:
+            #     sample_syn = sample_syn[~np.isinf(sample_syn[column])]
+            # # 2. discard sample_syn[mag] > band_max
+            # if len(self.mag) == 1:
+            #     sample_syn = sample_syn[sample_syn[self.mag[0]] <= self.band_max_obs[0]]
+            # elif len(self.mag) > 1:
+            #     for mag_col, band_max_val in zip(self.mag, self.band_max_obs):
+            #         sample_syn = sample_syn[sample_syn[mag_col] <= band_max_val]
+
+            if self.photsys == 'gaiaDR3' or len(self.bands) == 2:  # or len(self.bands) == 2
+                # condition为只要有一个波段暗于极限星等，就把它丢弃
+                condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                    cond = sample_syn[b] >= b_max
+                    condition = condition | cond
+
+            else:  # self.photsys == 'CSST'
+                # condition为所有波段都暗于极限星等的星，将之丢弃
+                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                    cond = sample_syn[b] > b_max
+                    condition = condition & cond
+
+            sample_syn = sample_syn[~condition].reset_index(drop=True)
+            samples = pd.concat([samples, sample_syn], ignore_index=True)
+            accepted += len(sample_syn)
+
+            # dynamically adjusting batch_size
+            if self.photsys == "gaiaDR3" or len(self.bands) == 2:
+                if accepted < n_stars:
+                    # remain = n_stars - accepted
+                    # batch_size = int(remain * best_rate)
+                    total_size += batch_size
+            else:  # self.photsys == 'CSST'
+                if accepted < n_stars:
+                    remain = n_stars - accepted
+                    batch_size = int(remain * best_rate)
+                    total_size += batch_size
+
+            test_sample_time += 1
+            # rejection_rate = 1 - len(sample_syn) / batch_size
+            # if rejection_rate > 0.2:
+            #     batch_size = int(batch_size * 1.2)
+            # else:
+            #     batch_size = int(batch_size * 0.8)
+
+            # runtime test
+
+        samples = samples.iloc[:n_stars]
+        # return samples
+        # runtime test
+        accepted_rate = accepted / total_size
+
+        c_syn, m_syn = CMD.extract_cmd(samples, self.model, self.photsys, True)
+        isoc_c = (isoc_new[self.color[0][0]] - isoc_new[self.color[0][1]]).values.ravel()
+        isoc_m = isoc_new[self.mag].values.ravel()
+        c = (samples[self.color[0][0]] - samples[self.color[0][1]]).values.ravel()
+        m = samples[self.mag].values.ravel()
+
+        isoc_line = interp1d(x=isoc_m, y=isoc_c, fill_value='extrapolate')
+        temp_c = isoc_line(x=m)
+        delta_c = c - temp_c
+        samples['delta_c'] = delta_c
+
+        return samples
 
     def define_mass(self, isoc):
         """
