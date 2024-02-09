@@ -5,6 +5,8 @@
 # ex. wrong example: example_wrong = [2, 2.4, 2.6]
 #     correct : example_correct = [2.0, 2.4, 2.6]
 
+# 数据存放路径 data_dir
+# 等龄线模型存放路径 data_dir + isoc_dir
 data_dir = 'local' # 'raku' 'dandelion' 'local'
 raku = '/data/share/syy/starcat/' # raku
 dandelion = '/data/syy/starcat/' # dandelion
@@ -32,7 +34,7 @@ color = [['F336W', 'F814W']]
 
 # model data details
 [parsec.gaiaDR3]
-isoc_dir = 'isochrones/parsec/gaiaDR3/'
+isoc_dir = 'isochrones/parsec/gaiaDR3/' # 等龄线模型存放路径
 # column name in parsec
 bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 mini = 'Mini'
