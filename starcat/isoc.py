@@ -235,6 +235,8 @@ class Parsec(IsocModel):
             joblib.dump(isochrone, isoc_path)
 
         # label: 0=PMS, 1=MS, 2=SGB, 3=RGB, (4,5,6)=different stages of CHEB
+        # !! NOTICE MS for test ONLY!!
+        # isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 1)]
         isochrone = isochrone[(isochrone['label'] >= 0) & (isochrone['label'] <= 6)]
         useful_columns = [mini] + bands_isoc
         try:
