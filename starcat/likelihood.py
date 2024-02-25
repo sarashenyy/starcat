@@ -1,10 +1,10 @@
-import math
 import warnings
 from abc import ABC, abstractmethod
-from math import comb
 
+import math
 import numpy as np
 from astropy.stats import knuth_bin_width, bayesian_blocks
+from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import energy_distance, gaussian_kde
 
@@ -463,15 +463,19 @@ class Hist2Point4CMD(LikelihoodFunc):
                 c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
                 h_obs, h_syn = bin_blocks(c_obs, m_obs, c_syn, m_syn)
 
-            if h_syn is None or np.sum(h_syn) == 0:
+            if h_syn is None or np.sum(h_syn) <= (np.sum(h_obs) * 2):
                 return -np.inf
             else:
                 # h_syn = h_syn / np.sum(h_syn)
-                epsilon = 1e-8  # 1e-20
+                # epsilon = 1e-8  # 1e-20
+                # epsilon = (1 / np.sum(h_syn)) * 1e-2
+                # epsilon = 1e-2  # version2
                 # h_syn = h_syn + epsilon
-                h_syn = h_syn / np.sum(h_syn)
+                # h_syn = h_syn / np.sum(h_syn)
+                # h_syn = h_syn * (50000 / np.sum(h_syn)) # version2 归一化到50000
                 # h_syn = h_syn + epsilon
-                h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+                # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)  # version2
+                # h_syn = h_syn / np.mean(h_syn) # versiob2 为了使典型到log（p）=0
                 # lnlike = np.sum(h_obs * np.log10(h_syn))
                 # lnlike = np.sum(h_obs * np.log(h_syn))
                 # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
@@ -484,10 +488,24 @@ class Hist2Point4CMD(LikelihoodFunc):
                 # n_obs = len(sample_obs)
                 # h_syn = h_syn / (n_syn / n_obs)
 
-                lnlike = np.sum(h_obs * np.log(h_syn))
+                # lnlike = np.sum(h_obs * np.log(h_syn))
                 # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
                 # delta = np.max(lnlike)
                 # lnlike = lnlike - delta
+
+                # version1
+                # epsilon = (1 / np.sum(h_syn)) * 1e-2   # 改进epsilon的值
+                # h_syn = h_syn / np.sum(h_syn)
+                # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+                # lnlike = np.sum(h_obs * np.log(h_syn))
+
+                # version2
+                epsilon = 1e-2
+                h_syn = h_syn * (50000 / np.sum(h_syn))  # 归一化到50000
+                h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+                h_syn = h_syn / np.mean(h_syn)  # 为了使典型的log(p)=0
+                lnlike = np.sum(h_obs * np.log(h_syn))
+
                 return lnlike
 
             # h_syn = h_syn / np.sum(h_syn)
@@ -719,7 +737,7 @@ def lnlike(theta_args,
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if position == 'MW':  # Gaia MW
         condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.1) or (fb > 1.) or
+                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
                      (alpha < 0.5) or (alpha > 5.0))
     elif position == 'LG':
         # CSST Local Group
@@ -732,7 +750,7 @@ def lnlike(theta_args,
         condition = False
 
     if condition:
-        return -np.infs
+        return -np.inf
     else:
         if times == 1:
             if likelihoodfunc.get_funcname() == 'DeltaCMD':
