@@ -1,4 +1,5 @@
 import os
+import time
 from abc import ABC, abstractmethod
 
 import joblib
@@ -17,6 +18,12 @@ class Isoc(object):
     """
 
     def __init__(self, model):
+        """
+
+        Parameters
+        ----------
+        model : IsocModel
+        """
         self.model = model
 
     def get_isoc(self, photsyn, **kwargs):
@@ -41,7 +48,7 @@ class Isoc(object):
         --------
         See isoc_test.py for more details
         ```python
-        parse = Parsec()
+        parsec = Parsec()
         i = Isoc(Parsec)
         isoc = i.get_isoc
         ```
@@ -73,6 +80,9 @@ class IsocModel(ABC):
     """
     An abstract base class for isochrone model that defines the interface for its subclass.
     """
+
+    def load_model(self, photsyn):
+        pass
 
     @abstractmethod
     def get_isoc(self, photsyn, **kwargs):
@@ -119,8 +129,33 @@ class Parsec(IsocModel):
     subclass for abstract base class Model()
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.model = 'parsec'
+
+        photsyn = kwargs.get('photsyn')
+        if photsyn is not None:
+            self.loaded_data = self.load_model(photsyn)
+            self.photsyn = photsyn
+
+    def load_model(self, photsyn):
+        source = config.config[self.model][photsyn]
+        isoc_dir = source['isoc_dir']
+        folder_path = config.data_dir + isoc_dir
+        # 获取文件夹中的文件列表
+        file_list = os.listdir(folder_path)
+        file_list = [file for file in file_list if file.endswith('.joblib')]
+        # 用于存储加载的数据的字典
+        loaded_data = {}
+        # 批量读取文件并加载到内存中
+        start = time.time()
+        for i, file_name in enumerate(file_list):
+            # if i % 100 == 0:
+            #     print(i)
+            file_path = os.path.join(folder_path, file_name)
+            loaded_data[file_name] = joblib.load(file_path)
+        end = time.time()
+        print(f'load {len(file_list)} isochrones using {end - start:.4f}s')
+        return loaded_data
 
     @log_time
     def get_isoc(self, photsyn, **kwargs):
@@ -216,8 +251,12 @@ class Parsec(IsocModel):
         #         # if not os.path.exists(isoc_path):
 
         # useful_columns = ['phase', mini, mass] + bands
+
+        # if os.path.exists(isoc_path):
+        #     isochrone = joblib.load(isoc_path)
+        file_name = f'age{logage:+.2f}_mh{mh:+.2f}.joblib'
         if os.path.exists(isoc_path):
-            isochrone = joblib.load(isoc_path)
+            isochrone = self.loaded_data.get(file_name)
         else:
             c = CMD()
             if photsyn == 'gaiaDR3':
@@ -343,8 +382,33 @@ class MIST(IsocModel):
     subclass for abstract base class Model()
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.model = 'mist'
+
+        photsyn = kwargs.get('photsyn')
+        if photsyn is not None:
+            self.loaded_data = self.load_model(photsyn)
+            self.photsyn = photsyn
+
+    def load_model(self, photsyn):
+        source = config.config[self.model][photsyn]
+        isoc_dir = source['isoc_dir']
+        folder_path = config.data_dir + isoc_dir
+        # 获取文件夹中的文件列表
+        file_list = os.listdir(folder_path)
+        file_list = [file for file in file_list if file.endswith('.joblib')]
+        # 用于存储加载的数据的字典
+        loaded_data = {}
+        # 批量读取文件并加载到内存中
+        start = time.time()
+        for i, file_name in enumerate(file_list):
+            # if i % 100 == 0:
+            #     print(i)
+            file_path = os.path.join(folder_path, file_name)
+            loaded_data[file_name] = joblib.load(file_path)
+        end = time.time()
+        print(f'load {len(file_list)} isochrones using {end - start:.4f}s')
+        return loaded_data
 
     def get_isoc(self, photsyn, **kwargs):
         logage_step = kwargs.get('logage_step')
