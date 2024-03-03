@@ -1,11 +1,13 @@
-import random
 from abc import ABC, abstractmethod
 
 import numpy as np
 
 from . import config
-from .logger import log_time
 
+
+# from .logger import log_time
+# import jax.numpy as jnp
+# from .interp_cython import interp_cython
 
 class BinMethod(ABC):
     @abstractmethod
@@ -40,7 +42,7 @@ class BinMS(BinMethod):
     def __init__(self):
         self.method = 'MainSequenceBinary'
 
-    @log_time
+    # @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -78,7 +80,7 @@ class BinSimple(BinMethod):
     def __init__(self):
         self.method = 'SimpleBinary'
 
-    @log_time
+    # @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
@@ -119,7 +121,7 @@ class BinMRD(BinMethod):
     def __init__(self):
         self.method = 'BinaryMRD'
 
-    @log_time
+    # @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
         sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample)
         sample = add_companion_mag(
@@ -150,13 +152,11 @@ def sample_q(qmin, qmax=None, gamma=0):
     num = len(qmin)
     if qmax is None:
         qmax = np.ones(num)
+    cdf_factor = ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) / (gamma + 1))
     # u = np.random.random()
     # np.random.uniform(): [low, high)
     u = np.random.uniform(0, 1 + 1e-4, num)
-    q = (
-                u * ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) / (gamma + 1)) +
-                qmin ** (gamma + 1)
-        ) ** (1 / (gamma + 1))
+    q = (u * cdf_factor + qmin ** (gamma + 1)) ** (1 / (gamma + 1))
     return q
 
 
@@ -174,14 +174,17 @@ def add_secmass_MRD(fb, n_stars, sample):
     pd.DataFrames : [mass_pri, mass_sec, q]
     """
     # randomly choose binaries
-    # if mass_sec != Nan, then binaries
+    # if mass_sec != Nan, then binariesss
     n_binary = int(n_stars * fb)
     # np.random.seed(42)
     # no duplication! np.random.choice() will return duplicate index
-    secindex = random.sample(list(sample.index), n_binary)
-    qmin = 0.09 / np.array(sample.loc[secindex, 'mass_pri'])
+
+    # secindex = random.sample(list(sample.index), n_binary)
+    secindex = np.random.choice(sample.index, n_binary, replace=False)  # maybe faster -43.37ms
+    mass_pri = sample.loc[secindex, 'mass_pri'].to_numpy()
+    qmin = 0.09 / mass_pri
     qs = sample_q(qmin=qmin)
-    sample.loc[secindex, 'mass_sec'] = qs * np.array(sample.loc[secindex, 'mass_pri'])
+    sample.loc[secindex, 'mass_sec'] = qs * mass_pri
     sample.loc[secindex, 'q'] = qs
     return sample
 
@@ -208,13 +211,15 @@ def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max, alpha
     n_binary = int(n_stars * fb)
     # np.random.seed(42)
     # # no duplication! np.random.choice() will return duplicate index
-    secindex = random.sample(list(sample.index), n_binary)
+
+    # secindex = random.sample(list(sample.index), n_binary)
+    secindex = np.random.choice(sample.index, n_binary, replace=False)
     sample.loc[secindex, 'mass_sec'] = imf.sample(n_stars=n_binary, mass_min=masssec_min,
                                                   mass_max=masssec_max, alpha=alpha)
     return sample
 
 
-@log_time
+# @log_time
 def add_companion_mag(sample, isoc, model, photsyn):
     """
     Add Mag for given Mass.
@@ -281,18 +286,64 @@ def add_companion_mag(sample, isoc, model, photsyn):
     #     )
 
     # add mag for each band, without using piecewise
+    mini = isoc[mini].to_numpy()
+    mpri = sample['mass_pri'].to_numpy()
+    msec = sample['mass_sec'].to_numpy()
     for _ in bands:
+        mag = isoc[_].to_numpy()
         # ! make sure np.all(np.diff(isoc[mini])>0) is True!
-        sample.loc[:, '%s_pri' % _] = np.interp(sample['mass_pri'], isoc[mini], isoc[_])
-        sample.loc[:, '%s_sec' % _] = np.interp(sample['mass_sec'], isoc[mini], isoc[_])
+        sample.loc[:, '%s_pri' % _] = np.interp(mpri, mini, mag)
+        sample.loc[:, '%s_sec' % _] = np.interp(msec, mini, mag)
+        # using cython
+        # sample.loc[:, '%s_pri' % _] = interp_cython(mpri, mini, mag)
+        # sample.loc[:, '%s_sec' % _] = interp_cython(msec, mini, mag)
+
         # add syn mag (for binaries, syn = f(pri,sec) )
         sample[_] = sample['%s_pri' % _]
-        sample.loc[secindex, _] = (
-                -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % _])
-                                + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % _])
-                                )
-        )
+
+        # sample.loc[secindex, _] = (
+        #         -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % _])
+        #                         + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % _])
+        #                         )
+        # )
+        mag1 = sample.loc[secindex, '%s_pri' % _].to_numpy()  # pandas.core.series.Series -> numpy.ndarray
+        mag2 = sample.loc[secindex, '%s_sec' % _].to_numpy()
+        sample.loc[secindex, _] = combine_mag(mag1, mag2)
+
+    # j_mini = jnp.array(isoc[mini].to_numpy())
+    # j_mpri = jnp.array(sample['mass_pri'].to_numpy())
+    # j_msec = jnp.array(sample['mass_sec'].to_numpy())
+    # for _ in bands:
+    #     j_mag = jnp.array(isoc[_].to_numpy())
+    #     # ! make sure np.all(np.diff(isoc[mini])>0) is True!
+    #     sample.loc[:, '%s_pri' % _] = jnp.interp(j_mpri, j_mini, j_mag)
+    #     sample.loc[:, '%s_sec' % _] = jnp.interp(j_msec, j_mini, j_mag)
+    #
+    #     # add syn mag (for binaries, syn = f(pri,sec) )
+    #     sample[_] = sample['%s_pri' % _]
+    #
+    #     # sample.loc[secindex, _] = (
+    #     #         -2.5 * np.log10(pow(10, -0.4 * sample.loc[secindex, '%s_pri' % _])
+    #     #                         + pow(10, -0.4 * sample.loc[secindex, '%s_sec' % _])
+    #     #                         )
+    #     # )
+    #     mag1 = sample.loc[secindex, '%s_pri' % _].to_numpy()  # pandas.core.series.Series -> numpy.ndarray
+    #     mag2 = sample.loc[secindex, '%s_sec' % _].to_numpy()
+    #     sample.loc[secindex, _] = combine_mag(mag1, mag2)
+
     return sample
+
+
+# import numba as nb
+# @nb.njit
+# def interp_numba():
+
+def combine_mag(mag1, mag2):
+    flux1 = 10 ** (-0.4 * mag1)
+    flux2 = 10 ** (-0.4 * mag2)
+    combined_flux = flux1 + flux2
+    combined_mag = -2.5 * np.log10(combined_flux)
+    return combined_mag
 
 
 def define_secmass_ms(isoc, model, photsyn):
