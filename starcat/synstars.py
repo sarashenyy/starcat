@@ -168,8 +168,7 @@ class SynStars(object):
 
             # runtime test
 
-        # samples = samples.iloc[:n_stars]
-        samples.truncate(before=0, after=n_stars - 1, inplace=True)
+        samples = samples.iloc[:n_stars]
         # return samples
         # runtime test
         accepted_rate = accepted / total_size
