@@ -101,7 +101,7 @@ class SynStars(object):
         if self.photsys == 'CSST':  # and len(self.bands) != 2
             best_rate = 1.2  # if discard only when all bands ar below magnitude limit
         else:  # or len(self.bands) == 2
-            best_rate = 2
+            best_rate = 1.8  # best_rate = 2
         batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
         total_size = batch_size
@@ -168,7 +168,8 @@ class SynStars(object):
 
             # runtime test
 
-        samples = samples.iloc[:n_stars]
+        # samples = samples.iloc[:n_stars]
+        samples.truncate(before=0, after=n_stars - 1, inplace=True)
         # return samples
         # runtime test
         accepted_rate = accepted / total_size
