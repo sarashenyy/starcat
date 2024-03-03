@@ -4,7 +4,6 @@ import numpy as np
 
 from . import config
 from .calSN import calculateSkyPix, calculateSN
-from .logger import log_time
 from .magerr import MagError
 
 
@@ -43,7 +42,7 @@ class CSSTsim(Photerr):
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
 
-    @log_time
+    # @log_time
     def add_syn_photerr(self, sample_syn, ex_time=150, ex_num=1):
         """
 
@@ -104,7 +103,7 @@ class GaiaDR3(Photerr):
         self.bands = source['bands']
         self.med_nobs = med_nobs
 
-    @log_time
+    # @log_time
     def add_syn_photerr(self, sample_syn, **kwargs):
         """
         Add synthetic photoerror to synthetic star sample.

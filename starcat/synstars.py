@@ -6,7 +6,6 @@ from scipy.interpolate import interp1d
 
 from . import config, IMF, CMD
 from .isoc import Isoc
-from .logger import log_time
 
 
 class SynStars(object):
@@ -44,7 +43,7 @@ class SynStars(object):
         self.mag = source['mag']
         self.color = source['color']
 
-    @log_time
+    # @log_time
     def __call__(self, theta, n_stars, variable_type_isoc, test=False, figure=False, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
@@ -72,16 +71,21 @@ class SynStars(object):
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
         # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
-        if isinstance(variable_type_isoc, pd.DataFrame):
-            isoc = variable_type_isoc
-        elif isinstance(variable_type_isoc, Isoc):
-            isoc = variable_type_isoc.get_isoc(
-                self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
-            )
-            if isoc is False:  # get_isoc() raise Error
-                return False
-        else:
-            print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
+        isoc = variable_type_isoc.get_isoc(
+            self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
+        )
+
+        # for check, delete considering runtime
+        # if isinstance(variable_type_isoc, pd.DataFrame):
+        #     isoc = variable_type_isoc
+        # elif isinstance(variable_type_isoc, Isoc):
+        #     isoc = variable_type_isoc.get_isoc(
+        #         self.photsys, logage=logage, mh=mh, logage_step=logage_step, mh_step=mh_step
+        #     )
+        #     if isoc is False:  # get_isoc() raise Error
+        #         return False
+        # else:
+        #     print('Please input an variable_type_isoc of type pd.DataFrame or starcat.Isoc.')
 
         # !step 2: add distance modulus and Av, make observed iso
         isoc_new = self.get_observe_isoc(isoc, dm, Av)
@@ -352,8 +356,14 @@ class SynStars(object):
                     cond = sample_syn[b] > b_max
                     condition = condition & cond
 
-            sample_syn = sample_syn[~condition].reset_index(drop=True)
-            samples = pd.concat([samples, sample_syn], ignore_index=True)
+            # sample_syn = sample_syn[~condition].reset_index(drop=True)
+            # 使用原位修改（in-place modification）来优化这行代码，而不是创建新的 DataFrame
+            sample_syn.drop(sample_syn.index[condition], inplace=True)
+            sample_syn.reset_index(drop=True, inplace=True)
+            # samples = pd.concat([samples, sample_syn], ignore_index=True)
+            # 使用 pd.append 方法来替代 pd.concat。pd.append 方法会在原始 DataFrame 上进行就地修改，
+            # 因此不会创建新的 DataFrame，从而减少了内存复制的开销
+            samples = samples.append(sample_syn, ignore_index=True)
             accepted += len(sample_syn)
 
             # dynamically adjusting batch_size
