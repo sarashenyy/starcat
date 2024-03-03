@@ -3,8 +3,6 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy import integrate
 
-from .logger import log_time
-
 
 class IMF(object):
     def __init__(self, type='salpeter55'):
@@ -151,7 +149,6 @@ class IMF(object):
         imf_val = mass_int ** -alpha
         return imf_val
 
-    @log_time
     def sample(self, n_stars, mass_min, mass_max, alpha=None, seed=None):
         """
         Generate n stars which mass distribution obey with imf.

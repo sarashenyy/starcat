@@ -10,7 +10,6 @@ from scipy.stats import energy_distance, gaussian_kde
 
 from . import config
 from .cmd import CMD
-from .logger import log_time
 from .widgets import round_to_step
 
 
@@ -42,7 +41,7 @@ class Hist2Hist4CMD(LikelihoodFunc):
         if self.bin_method == 'fixed':
             self.bins = kwargs.get('bins')
 
-    @log_time
+    # @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
             h_syn = None
@@ -447,7 +446,7 @@ class Hist2Point4CMD(LikelihoodFunc):
         if self.bin_method == 'fixed':
             self.bins = kwargs.get('bins')
 
-    @log_time
+    # @log_time
     def eval_lnlike(self, sample_obs, sample_syn):
         if self.number == 1:
             h_syn = None
@@ -586,7 +585,7 @@ def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_star
     return lnlike
 
 
-@log_time
+# @log_time
 def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, position, times=1):
     # try:
     warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -670,7 +669,7 @@ def lnlike_5p(theta, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs, 
     #     return -np.inf
 
 
-@log_time
+# @log_time
 def lnlike(theta_args,
            step,
            isoc,

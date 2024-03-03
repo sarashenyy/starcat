@@ -7,7 +7,6 @@ import pandas as pd
 from berliner import CMD
 
 from . import config
-from .logger import log_time
 from .widgets import round_to_step
 
 
@@ -157,7 +156,7 @@ class Parsec(IsocModel):
         print(f'load {len(file_list)} isochrones using {end - start:.4f}s')
         return loaded_data
 
-    @log_time
+    # @log_time
     def get_isoc(self, photsyn, **kwargs):
         """
         Get isochrone from parsec model.
