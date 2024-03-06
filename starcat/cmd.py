@@ -28,9 +28,22 @@ class CMD(object):
         elif synthetic is False:
             source = config.config['observation'][photsys]
 
-        m = sample[source['mag'][0]]
-        c = sample[source['color'][0][0]] - sample[source['color'][0][1]]
+        m = sample[source['mag'][0]].to_numpy()
+        c = (sample[source['color'][0][0]] - sample[source['color'][0][1]]).to_numpy()
         return c, m
+
+    @staticmethod
+    def extract_error(sample, model, photsys, synthetic):
+        if synthetic is True:
+            source = config.config[model][photsys]
+        elif synthetic is False:
+            source = config.config['observation'][photsys]
+
+        m_err = sample[source['mag_err'][0]].to_numpy()
+        c1_err = sample[source['color_err'][0][0]].to_numpy()
+        c2_err = sample[source['color_err'][0][1]].to_numpy()
+        c_err = np.sqrt(c1_err ** 2 + c2_err ** 2)
+        return c_err, m_err
 
     @staticmethod
     def hist2d(color, mag, bins: int):
