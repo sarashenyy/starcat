@@ -1,11 +1,12 @@
+import math
 import warnings
 from abc import ABC, abstractmethod
+from math import comb
 
-import math
 import numpy as np
 from astropy.stats import knuth_bin_width, bayesian_blocks
-from math import comb
 from matplotlib import pyplot as plt
+from scipy import signal
 from scipy.stats import energy_distance, gaussian_kde
 
 from . import config
@@ -412,18 +413,111 @@ class GaussianKDE(LikelihoodFunc):
         return lnlike
 
 
-class KernalSmooth(LikelihoodFunc):
+class KernelSmooth(LikelihoodFunc):
     def __init__(self,
                  model,
                  photsys,
                  # bin_method,
                  **kwargs):
-        self.func = 'GaussianKDE'
+        self.func = 'kernel'
         self.model = model
         self.photsys = photsys
 
     def eval_lnlike(self, sample_obs, sample_syn):
         pass
+        # c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
+        # cobs_err, mobs_err = CMD.extract_error(sample_obs, self.model, self.photsys, False)
+        #
+        # # bin_edges 按照观测最小的sigam_c和sigma_m（的1/2）为最小格子分bin
+        # grid_min_c = np.min(cobs_err) / 2.
+        # grid_min_m = np.min(mobs_err) / 2.
+        # # [start, stop), with spacing between values given by step.
+        # c_start = c_obs.min() - 3. * cobs_err[c_obs.argmin()]
+        # c_end = c_obs.max() + 3. * cobs_err[c_obs.argmax()]
+        # m_start = m_obs.min() - 3. * mobs_err[m_obs.argmin()]
+        # m_end = m_obs.max() + 3. * mobs_err[m_obs.argmax()]
+        #
+        # c_bin = np.arange(start=c_start, stop=c_end + grid_min_c, step=grid_min_c)
+        # m_bin = np.arange(start=m_start, stop=m_end + grid_min_m, step=grid_min_m)
+        # bin_edges = [c_bin, m_bin]
+        # # 按照 bin_edges 得到 H_syn, H_obs; 此时H_syn和H_obs应该拥有相同的格点
+        # # https://numpy.org/doc/stable/reference/generated/numpy.histogram2d.html
+        # # np.histogram2d(x, y, bins=[x_edges, y_edges]) return ndarray, shape(nx, ny)
+        # # H_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
+        # H_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
+        #
+        # # 根据观测的(c,m)以及对应的(sigma_c,sigma_m)制作高斯mask:
+        # # 1、获得观测的每颗星的格点索引（mask中心值索引）
+        # maskid_center_color = np.digitize(c_obs, c_bin)  # DEFAULT right=False
+        # maskid_center_mag = np.digitize(m_obs, m_bin)
+        # # 2、根据 cobs_err 和 mobs_err 计算mask的形状 (切片左闭右开)
+        # #    mask形状：在 color 轴上索引为 [maskid_center_color - halflen_color : maskid_center_color + halflen_color + 1]
+        # #             在 mag 轴上索引为 [maskid_center_mag - halflen_mag : maskid_center_mag + halflen_mag + 1]
+        # halflen_color = int((3. * cobs_err) / grid_min_c)
+        # halflen_mag = int((3. * mobs_err) / grid_min_m)
+        # # 3、生成高斯mask
+        # for
+        #
+        # # 1、记录每个mask在整个大的直方图中的下标位置loc，
+        # # 2、用gaussian_2d给mask矩阵赋值
+        # # for each mask:
+        # # 根据每个mask的下标位置loc，取出H_syn中与mask形状相同的矩阵syns
+        #
+        # pi = []
+        # lnpi = []
+        # for cobs, mobs, cobs_err, mobs_err in zip(c_obs, m_obs, cobs_err, mobs_err):
+        #     aux_p = np.dot(syn.ravel(), mask.ravel())
+        #     aux_lnp = np.log(aux_p)
+        #     pi.append(aux_p)
+        #     lnpi.append(aux_lnp)
+        #
+        # lnlike = np.sum(lnpi)
+        # return lnlike
+
+
+def generate_gaussian_mask(shape, sigma_x, sigma_y=None):
+    """
+    中间速度：34.6 µs ± 333 ns per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
+
+    Parameters
+    ----------
+    shape: (rows, cols) (x,y)
+    sigma_x: sigma_rows
+    sigma_y: sigma_cols
+
+    Returns
+    -------
+
+    """
+    if sigma_y is None:
+        sigma_y = sigma_x
+    rows, cols = shape
+
+    def get_gaussian_fct(size, sigma):
+        fct_gaus_x = np.linspace(0, size, size)
+        fct_gaus_x = fct_gaus_x - size / 2
+        fct_gaus_x = fct_gaus_x ** 2
+        fct_gaus_x = fct_gaus_x / (2 * sigma ** 2)
+        fct_gaus_x = np.exp(-fct_gaus_x)
+        return fct_gaus_x
+
+    mask = np.outer(get_gaussian_fct(rows, sigma_y), get_gaussian_fct(cols, sigma_x))
+    return mask / mask.sum()
+
+
+def gaussian_kernel(n, std, normalised=True):
+    """
+    最快：15.7 µs ± 103 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    Generates a n x n matrix with a centered gaussian
+    of standard deviation std centered on it. If normalised,
+    its volume equals 1.
+    Note to make sure volume equals ~0.975 in n x n martix, std <= n x 1/5
+    """
+    gaussian1D = signal.windows.gaussian(n, std)
+    gaussian2D = np.outer(gaussian1D, gaussian1D)
+    if normalised:
+        gaussian2D /= (2 * np.pi * (std ** 2))
+    return gaussian2D
 
 
 class Hist2Point4CMD(LikelihoodFunc):
