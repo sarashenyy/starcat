@@ -1,5 +1,6 @@
 from .binary import BinMS, BinSimple, BinMRD
 from .bonus import meow
+from .cmd import *
 from .imf import IMF
 from .isoc import Isoc, Parsec, MIST
 from .likelihood import *
