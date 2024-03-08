@@ -1,11 +1,13 @@
 import dynesty
+import joblib
 from dynesty import plotting as dyplot
 from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
 
 from starcat import (Isoc, Parsec, IMF,
                      BinMRD,
                      CSSTsim, SynStars,
-                     lnlike, Hist2Hist4CMD, Hist2Point4CMD)
+                     lnlike, Hist2Point4CMD, SahaW, EnergyDistance, GaussianKDE)
 
 # re-defining plotting defaults
 
@@ -15,7 +17,7 @@ plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
 def loglikelihood(x, step, isoc_inst, likelihood_inst, synstars_inst, n_syn, observation):
     return lnlike(x, step,
                   isoc_inst, likelihood_inst, synstars_inst, n_syn,
-                  observation, 'LG', 5,
+                  observation, 'LG', 10,
                   logage=8., mh=0., dm=18.5, Av=0.5)
 
 
@@ -23,7 +25,7 @@ def prior_transform(u):
     """Transforms the uniform random variables `u ~ Unif[0., 1.)`
     to the parameters of interest."""
     x = u.copy()  # copy u
-    x_range = [[0.2, 1.0], [1.6, 3.0]]
+    x_range = [[0.0, 1.0], [1.6, 3.0]]
     for i, xrange in enumerate(x_range):
         x[i] = (1 - u[i]) * xrange[0] + u[i] * xrange[1]
     return x
@@ -45,23 +47,53 @@ if __name__ == "__main__":
     theta_args = fb, alpha
     theta = logage, mh, dm, Av, fb, alpha
     step = (0.05, 0.05)  # logage, mh
-    n_stars = 1500
-    n_syn = 100000
-    bins = 50
-    h2h_cmd_inst = Hist2Hist4CMD(model, photsys, bins)
+    logage_step, mh_step = step
+    n_stars = 1000
+    n_syn = 50000
+    # bins = 50
     h2p_cmd_inst = Hist2Point4CMD(model, photsys, bin_method='knuth')
+    sahaw_inst = SahaW(model, photsys, bin_method='knuth')
+    energy_inst = EnergyDistance(model, photsys, bin_method='knuth')
+    kde_inst = GaussianKDE(model, photsys)
+
+    likelihood_inst = h2p_cmd_inst
 
     samples = synstars_inst(theta, n_stars, isoc_inst)
     observation = samples  # samples[(samples['g'] < 26.0)]  # samples[(samples['g'] < 25.5) & (samples['i'] < 25.5)]
     # observation = samples[samples['i'] < 24]
+
+    obs_isoc = isoc_inst.get_obsisoc(photsys, dm=dm, Av=Av, logage=logage, mh=mh, logage_step=logage_step,
+                                     mh_step=mh_step)
+
+
+    def delta_color(sample, obs_isoc):
+        isoc_c = obs_isoc['g'] - obs_isoc['i']
+        isoc_m = obs_isoc['i']
+        c = sample['g'] - sample['i']
+        m = sample['i']
+        isoc_line = interp1d(x=isoc_m, y=isoc_c, fill_value='extrapolate')
+        temp_c = isoc_line(x=m)
+        delta_c = c - temp_c
+        sample['delta_c'] = delta_c
+        return sample
+
+
+    # observation = delta_color(observation, obs_isoc)
+
+    # sample_dcmd = synstars_inst.delta_color_samples(theta, n_syn, isoc_inst, logage_step=logage_step, mh_step=mh_step)
+    # Dcmd = lnlike(theta_args, step,
+    #               isoc_inst, likelihood_inst, synstars_inst, n_syn,
+    #               observation, 'LG', 5,
+    #               logage=8., mh=0., dm=18.5, Av=0.5)
 
     fig, ax = plt.subplots(figsize=(4, 5))
     bin = observation['mass_sec'].notna()
     c = observation['g'] - observation['i']
     m = observation['i']
 
-    ax.scatter(c[bin], m[bin], color='blue', s=5, alpha=0.6, label='binary')
-    ax.scatter(c[~bin], m[~bin], color='orange', s=5, alpha=0.6, label='single')
+    ax.scatter(c[bin], m[bin], color='#8E8BFE', s=5, alpha=0.6, label='binary')
+    ax.scatter(c[~bin], m[~bin], color='#E88482', s=5, alpha=0.6, label='single')
+    ax.plot(obs_isoc['g'] - obs_isoc['i'], obs_isoc['i'], color='r')
     ax.set_ylim(max(observation['i']) + 0.2, min(observation['i']) - 0.5)
     ax.set_xlim(min(observation['g'] - observation['i']) - 0.2, max(observation['g'] - observation['i']) + 0.2)
     ax.legend()
@@ -72,43 +104,29 @@ if __name__ == "__main__":
 
     fig.show()
 
-    samples = synstars_inst(theta, n_syn, isoc_inst)
-    h2h = lnlike(theta_args, step,
-                 isoc_inst, h2h_cmd_inst, synstars_inst, n_syn,
-                 observation, 'LG', 5,
-                 logage=logage, mh=mh, dm=dm, Av=Av)
-    h2p = lnlike(theta_args, step,
-                 isoc_inst, h2p_cmd_inst, synstars_inst, n_syn,
-                 observation, 'LG', 5,
-                 logage=logage, mh=mh, dm=dm, Av=Av)
-    print(h2h)
-    print(h2p)
-
-    fig, ax = plt.subplots(figsize=(4, 4))
-    bin = samples['mass_sec'].notna()
-    c = samples['g'] - samples['i']
-    m = samples['i']
-    c_obs = observation['g'] - observation['i']
-    m_obs = observation['i']
-
-    ax.scatter(c[bin], m[bin], color='blue', s=5, alpha=0.6)
-    ax.scatter(c[~bin], m[~bin], color='orange', s=5, alpha=0.6)
-    ax.scatter(c_obs, m_obs, s=1, color='grey')
-    ax.invert_yaxis()
-    ax.set_xlim(min(c_obs) - 0.2, max(c_obs) + 0.2)
-    ax.set_ylim(max(m_obs) + 0.5, min(m_obs) - 0.5)
-    ax.set_title(f'logage={logage}, [M/H]={mh}, DM={dm}, \n'
-                 f'Av={Av}, fb={fb}, alpha={alpha}', fontsize=12)
-    ax.set_xlabel('g - i')
-    ax.set_ylabel('i')
-    ax.text(0.6, 0.6, f'H2H={h2h:.2f}', transform=ax.transAxes, fontsize=11)
-    ax.text(0.6, 0.5, f'H2P={h2p:.2f}', transform=ax.transAxes, fontsize=11)
-
-    fig.show()
+    # fig, ax = plt.subplots(figsize=(4, 5))
+    # bin = sample_dcmd['mass_sec'].notna()
+    # dc_syn = sample_dcmd['delta_c']
+    # m_syn = sample_dcmd['i']
+    # dc_obs = observation['delta_c']
+    # m_obs = observation['i']
+    #
+    # ax.scatter(dc_syn[bin], m_syn[bin], color='#8E8BFE', s=5, alpha=0.6, label='binary')
+    # ax.scatter(dc_syn[~bin], m_syn[~bin], color='#E88482', s=5, alpha=0.6, label='single')
+    # ax.scatter(dc_obs, m_obs, color='grey', s=5, alpha=0.6)
+    # # ax.plot(obs_isoc['g']-obs_isoc['i'], obs_isoc['i'], color='r')
+    # # ax.set_ylim(max(observation['i']) + 0.2, min(observation['i']) - 0.5)
+    # # ax.set_xlim(min(observation['g'] - observation['i']) - 0.2, max(observation['g'] - observation['i']) + 0.2)
+    # ax.invert_yaxis()
+    # ax.legend(frameon=True)
+    # ax.set_title(f'dCMD_H2P={Dcmd:.2f}', fontsize=12)
+    # ax.set_xlabel('g - i')
+    # ax.set_ylabel('i')
+    #
+    # fig.show()
 
     # Define the dimensionality of our problem.
     ndim = 2
-    likelihood_inst = h2p_cmd_inst
 
     # sampler = dynesty.NestedSampler(loglike, ptform, ndim)
     # sampler.run_nested()
@@ -118,20 +136,20 @@ if __name__ == "__main__":
                            logl_args=(step, isoc_inst, likelihood_inst, synstars_inst, n_syn, observation)) as pool:
         # Statistic
         sampler = dynesty.NestedSampler(pool.loglike, pool.prior_transform, ndim, pool=pool,
-                                        nlive=1000, bound='single', sample='unif')
-        sampler.run_nested(dlogz=0.01, checkpoint_file='H2P.2Pknuth.save')  # checkpoint_file='dynesty.save'
+                                        nlive=1000)  # , bound='single', sample='unif'
+        sampler.run_nested(dlogz=0.1, checkpoint_file='H2P.2P.h2p.save')  # checkpoint_file='dynesty.save'
         # Dynamic
         # dsampler = dynesty.DynamicNestedSampler(pool.loglike, pool.prior_transform, ndim, pool=pool,
         #                                         bound='single', sample='unif')  # first_update={'min_eff':25.}
-        # dsampler.run_nested(dlogz_init=0.01, nlive_init=500, n_effective=5000,
-        #                     checkpoint_file='H2P.2Pknuth.dsave')
-        # nlive_batch=100, maxiter_init=10000, maxiter_batch=1000, maxbatch=10,
+        # dsampler.run_nested(dlogz_init=0.1, nlive_init=500,
+        #                     checkpoint_file='H2P.2P.kde100.dsave')
+        # nlive_batch=100, maxiter_init=10000, maxiter_batch=1000, maxbatch=10,  n_effective=5000,
 
-    # filename = 'H2P.2Pknuth.dsampler'
-    # dir = '/Users/sara/PycharmProjects/starcat/script/dynesty_tests/'
-    # path = dir + filename
-    # joblib.dump(dsampler, path)
-    #
+    filename = 'H2P.2P.h2p.sampler'
+    dir = '/Users/sara/PycharmProjects/starcat/script/dynesty_tests/'
+    path = dir + filename
+    joblib.dump(sampler, path)
+
     results = sampler.results
 
     label = ['$f_b$', '$\\alpha$']
@@ -164,7 +182,7 @@ if __name__ == "__main__":
                                  labels=label,
                                  kde=True)
     fg.show()
-
+    #
     # #  Corner Plot
     fg, ax = dyplot.cornerplot(results, color='blue', truths=theta_args,
                                labels=label,
@@ -194,7 +212,7 @@ if __name__ == "__main__":
     fig.show()
     #
     #
-    # fig, axes = dyplot.cornerbound(results, it=3000,
-    #                                prior_transform=prior_transform,
-    #                                show_live=True)
-    # fig.show()
+    # # fig, axes = dyplot.cornerbound(results, it=3000,
+    # #                                prior_transform=prior_transform,
+    # #                                show_live=True)
+    # # fig.show()
