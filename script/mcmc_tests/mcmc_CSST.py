@@ -11,7 +11,8 @@ from starcat import (Isoc, Parsec, IMF,
                      lnlike, Hist2Hist4CMD, Hist2Point4CMD)
 
 # %matplotlib osx
-plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
+# plt.style.use('/Users/sara/PycharmProjects/starcat/data/mystyle.mplstyle')
+# plt.style.use('/home/shenyueyue/Projects/starcat/data/mystyle.mplstyle')
 # %%
 # initialization
 photsys = 'CSST'
@@ -91,7 +92,7 @@ fig.show()
 # %%
 # p0以真值为均值
 ndim = 6
-nwalkers = 60
+nwalkers = 30
 
 # scale = np.array([1, 0.1, 10, 0.5, 0.1])
 # p0 = theta + scale * np.random.randn(nwalkers, ndim)
@@ -99,7 +100,7 @@ labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', 'alpha']
 temp = []
 scale = np.array([0.5, 0.1, 1, 0.5, 0.1, 0.2])
 theta_range = [[6.7, 10.0], [-2.0, 0.4],
-               [15.0, 19.0], [0.0, 2.0],
+               [17.5, 25.5], [0.0, 2.0],
                [0.2, 1.0], [1.6, 3.0]]
 
 for i in range(ndim):
@@ -130,20 +131,85 @@ p0 = np.array(theta_samples).T
 
 # %%
 likelihood_inst = h2p_cmd_inst
-with Pool(10) as pool:
+with Pool(10) as pool:  # local:10(20min) ; raku:30(20min) ;
     sampler = emcee.EnsembleSampler(
         nwalkers, ndim, lnlike,
         pool=pool,
-        args=(step, isoc_inst, likelihood_inst, synstars_inst, n_stars, observation, 'LG', 5)
+        args=(step, isoc_inst, likelihood_inst, synstars_inst, n_syn, observation, 'LG', 5)
     )
-    nburn = 2000
-    pos, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
-
+    # nburn = 500
+    nstep = 2500
+    # p1, _, _ = sampler.run_mcmc(p0, nburn, progress=True)
     # sampler.reset()
-    # pos, prob, state = sampler.run_mcmc(p1, 10000, progress=True)
+    pos, prob, state = sampler.run_mcmc(p0, nstep, progress=True)
 
 # %%
+# test Autocorrelation Time
+# https://emcee.readthedocs.io/en/stable/tutorials/monitor/?highlight=sampler.sample
+# The difference here was the addition of a “backend”.
+# This choice will save the samples to a file called tutorial.h5 in the current directory.
+# Now, we’ll run the chain for up to 10,000 steps and check the autocorrelation time every 100 steps.
+# If the chain is longer than 100 times the estimated autocorrelation time and if this estimate changed by less than 1%,
+# we’ll consider things converged.
+coords = p0
+likelihood_inst = h2p_cmd_inst
+# Set up the backend
+# Don't forget to clear it in case the file already exists
+filename = "tutorial.h5"
+backend = emcee.backends.HDFBackend(filename)
+backend.reset(nwalkers, ndim)
 
+# Initialize the sampler
+with Pool(20) as pool:
+    sampler = emcee.EnsembleSampler(
+        nwalkers, ndim, lnlike,
+        pool=pool,
+        args=(step, isoc_inst, likelihood_inst, synstars_inst, n_syn, observation, 'LG', 5),
+        backend=backend)
+
+    max_n = 100000
+
+    # We'll track how the average autocorrelation time estimate changes
+    index = 0
+    autocorr = np.empty(max_n)
+
+    # This will be useful to testing convergence
+    old_tau = np.inf
+
+    # Now we'll sample for up to max_n steps
+    for sample in sampler.sample(coords, iterations=max_n, progress=True):
+        # Only check convergence every 100 steps
+        if sampler.iteration % 100:
+            continue
+
+        # Compute the autocorrelation time so far
+        # Using tol=0 means that we'll always get an estimate even
+        # if it isn't trustworthy
+        tau = sampler.get_autocorr_time(tol=0)
+        autocorr[index] = np.mean(tau)
+        index += 1
+
+        # Check convergence
+        converged = np.all(tau * 100 < sampler.iteration)
+        converged &= np.all(np.abs(old_tau - tau) / tau < 0.01)
+        if converged:
+            break
+        old_tau = tau
+
+# %%
+import matplotlib.pyplot as plt
+
+n = 100 * np.arange(1, index + 1)
+y = autocorr[:index]
+plt.plot(n, n / 100.0, "--k")
+plt.plot(n, y)
+plt.xlim(0, n.max())
+plt.ylim(0, y.max() + 0.1 * (y.max() - y.min()))
+plt.xlabel("number of steps")
+plt.ylabel(r"mean $\hat{\tau}$");
+plt.show()
+
+# %%
 # 获取采样样本链和对应的 ln(probability)
 samples = sampler.flatchain
 ln_prob = sampler.flatlnprobability
@@ -154,7 +220,8 @@ max_prob_sample = samples[max_prob_index]
 
 fig = corner.corner(
     # sampler.get_chain(discard=1000, thin=10, flat=True),
-    samples,
+    sampler.get_chain()[5000:, :, :].reshape((-1, ndim)),
+    # samples,
     labels=['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', '$\\alpha$'],
     truths=list(theta),
     quantiles=[0.16, 0.5, 0.84],
@@ -176,6 +243,7 @@ for i in range(ndim):
 
 labels = ['log(age)', '[M/H]', 'DM', '$A_{v}$', '$f_{b}$', '$\\alpha$']
 samples = sampler.get_chain()
+# samples = sampler.get_chain()[500:, :, :]
 fig, axes = plt.subplots(ndim, figsize=(10, 8), sharex=True)
 for i in range(ndim):
     ax = axes[i]
