@@ -9,8 +9,8 @@ import numpy as np
 # alpha = [1.8, 2.35, 2.8]
 logage = np.array([7., 8., 9.])
 mh = np.array([0])
-dm = np.array([18.5, 24.5])
-Av = np.array([0.02])
+dm = np.array([22])  # [18.5, 20]
+Av = np.array([0.05])
 fb = np.array([0.35])
 alpha = np.array([1.8, 2.35, 2.8])
 times = 1
