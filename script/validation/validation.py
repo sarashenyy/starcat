@@ -44,9 +44,14 @@ if __name__ == '__main__':
     step = (0.05, 0.05)
     # mcmc
     ndim = 6
-    nwalkers = 60
+    nwalkers = 60  # 20
 
-    data_list = []
+    try:
+        # 尝试读取现有文件内容
+        data_list = joblib.load(output_file_path)
+    except (FileNotFoundError, EOFError):
+        # 如果文件不存在或为空，创建一个空列表
+        data_list = []
 
     print(f'total: {len(param)} mock clusters')
     start = time.time()
@@ -81,10 +86,11 @@ if __name__ == '__main__':
             sampler = emcee.EnsembleSampler(
                 nwalkers, ndim, lnlike,
                 pool=pool,
-                args=(step, isoc_inst, likelihood_inst, synstars_inst, n_stars, observation, 'LG', 5)
+                args=(step, isoc_inst, likelihood_inst, synstars_inst, n_syn, observation, 'LG', 5)
             )
-            nburn = 1000
-            pos, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
+            nburn = 500  # burn=500, step=2000
+            nstep = 2000
+            p1, prob, state = sampler.run_mcmc(p0, nburn, progress=True)
         print(f'the {j}th mock cluster: end mcmc, calculate result')
         # calculate result
         result = None
@@ -97,6 +103,7 @@ if __name__ == '__main__':
 
         # combine theta and mcmc result
         data = np.column_stack((theta, result))
+        # 追加
         data_list.append(data)
         # save data
         joblib.dump(data_list, output_file_path)

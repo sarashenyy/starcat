@@ -13,7 +13,7 @@ single_path = '/Users/sara/PycharmProjects/starcat/data/WangLong/data.2901.singl
 all_path = '/Users/sara/PycharmProjects/starcat/data/WangLong/data.2901.chaoliu'
 
 column_binary = [
-    'Mass', 'x1', 'y1', 'z1', 'vx1', 'vy1', 'vz1', 'x2', 'y2', 'z2', 'vx2', 'vy2', 'vz2',
+    'M1', 'x1', 'y1', 'z1', 'vx1', 'vy1', 'vz1', 'M2', 'x2', 'y2', 'z2', 'vx2', 'vy2', 'vz2',
     'semi-major', 'eccentricity', 'RA', 'Dec', 'Distance', 'pm_RA', 'pm_Dec', 'vr',
     'luminosity1', 'Radius1', 'Temperature1', 'luminosity2', 'Radius2', 'Temperature2',
     'CSST.NUV1', 'CSST.u1', 'CSST.g1', 'CSST.r1', 'CSST.i1', 'CSST.z1', 'CSST.y1',
@@ -24,8 +24,8 @@ column_single = [
     'luminosity', 'Radius', 'Temperature', 'CSST.NUV', 'CSST.u', 'CSST.g', 'CSST.r', 'CSST.i', 'CSST.z', 'CSST.y'
 ]
 column_all = [
-    'Mass', 'x', 'y', 'z', 'vx', 'vy', 'RA', 'Dec', 'Distance', 'pm_RA', 'pm_Dec', 'vr', 'luminosity', 'Radius',
-    'Temperature', 'CSST.NUV', 'CSST.u', 'CSST.g', 'CSST.r', 'CSST.i', 'CSST.y'
+    'Mass', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'RA', 'Dec', 'Distance', 'pm_RA', 'pm_Dec', 'vr',
+    'luminosity', 'Radius', 'Temperature', 'CSST.NUV', 'CSST.u', 'CSST.g', 'CSST.r', 'CSST.i', 'CSST.z', 'CSST.y'
 ]
 
 binary_full = pd.read_csv(binary_path, sep=' ', skiprows=1, header=None)
