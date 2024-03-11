@@ -86,7 +86,9 @@ class CSSTsim(Photerr):
 
 
 class GaiaDR3(Photerr):
-    def __init__(self, model, med_nobs):
+    def __init__(self,
+                 model,
+                 med_nobs=(200., 20., 20.)):
         """
 
         Parameters
@@ -140,6 +142,11 @@ class GaiaDR3(Photerr):
             g_err, bp_err, rp_err
         )
         return sample_syn
+
+    def get_error(self, sample_syn):
+        e = MagError(med_nobs=self.med_nobs, bands=self.bands)
+        g_med_err, bp_med_err, rp_med_err = e.estimate_med_photoerr(sample_syn)
+        return g_med_err, bp_med_err, rp_med_err
 
 
 class Individual(Photerr):
