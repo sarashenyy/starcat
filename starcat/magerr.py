@@ -29,11 +29,22 @@ class MagError(Edr3LogMagUncertainty):
 
     def __init__(
             self,
-            sample_obs: pd.DataFrame = None,
-            med_nobs: list[int] = None,
-            spline_param: str = None,
-            bands: list[str] = None,
-            nobs: list[str] = None) -> None:
+            sample_obs,
+            med_nobs,
+            spline_param,
+            bands,
+            nobs):
+        """
+
+        Parameters
+        ----------
+        sample_obs: pd.DataFrame
+        med_nobs: list[int]
+        spline_param: str
+        bands: list[str]
+        nobs: list[str]
+        """
+
         if spline_param is None:
             spline_param = spline_csv
         super(MagError, self).__init__(spline_param)
