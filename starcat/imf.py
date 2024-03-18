@@ -108,26 +108,34 @@ class IMF(object):
         return imf_val
 
     @staticmethod
-    def kroupa01(mass_int, alpha=None):
+    def kroupa01(mass_int, alpha1=None, alpha2=None):
         """
         Kroupa (2001) - https://doi.org/10.1046/j.1365-8711.2001.04022.x
 
         Parameters
         ----------
         mass_int
-        alpha : float
+        alpha1 : float
+            Default is 1.3
+        alpha2 : float
             Default is 2.3
 
         Returns
         -------
 
         """
-        if alpha is None:
-            alpha = 2.3
-        id_low = np.where(mass_int <= 0.5)
-        imf_val = mass_int ** -alpha
-        # 2 for scale
-        imf_val[id_low] = 2 * mass_int[id_low] ** -1.3
+        if alpha1 is None:
+            alpha1 = 1.3
+        if alpha2 is None:
+            alpha2 = 2.3
+        m_break = 0.5
+        factor = m_break ** (alpha2 - alpha1)  # factor for scale
+
+        id_low = np.where(mass_int <= m_break)
+        # upper
+        imf_val = factor * (mass_int ** -alpha2)
+        # lower
+        imf_val[id_low] = mass_int[id_low] ** -alpha1
         return imf_val
 
     @staticmethod
@@ -155,7 +163,8 @@ class IMF(object):
 
         Parameters
         ----------
-        alpha
+        alpha : float / [float, float]
+            alpha / [alpha1, alpha2]
         n_stars : int
             n stars
         mass_min : float
@@ -180,7 +189,8 @@ class IMF(object):
         if self.type == 'chabrier03':
             imf_val = IMF.chabrier03(mass_int, alpha)
         elif self.type == 'kroupa01':
-            imf_val = IMF.kroupa01(mass_int, alpha)
+            alpha1, alpha2 = alpha
+            imf_val = IMF.kroupa01(mass_int, alpha1, alpha2)
         elif self.type == 'salpeter55':
             imf_val = IMF.salpeter55(mass_int, alpha)
 
