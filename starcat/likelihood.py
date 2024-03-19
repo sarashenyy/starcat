@@ -529,9 +529,9 @@ class Hist2Point4CMD(LikelihoodFunc):
     def __init__(self,
                  model,
                  photsys,
-                 # bins: int,
                  bin_method,
                  number=1,
+                 bins=None,
                  **kwargs):
         """
 
@@ -539,38 +539,64 @@ class Hist2Point4CMD(LikelihoodFunc):
         ----------
         model
         photsys
-        bins
+        bins : array-like, optional, [float, float]
+            [color_bin_width, mag_bin_width]
         number : int
             number of CMDs
         kwargs :
-            'bins'
+            'sample_obs'
         """
+        if bins is None:
+            bins = [0.05, 0.2]
+
         self.func = 'Hist2Point'
         self.model = model
         self.photsys = photsys
-        # self.bins = bins
-        self.bin_method = bin_method
         self.number = number
+
+        self.sample_obs = kwargs.get('sample_obs')
+        self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
+        # self.cobs_err, self.mobs_err =  CMD.extract_error(self.sample_obs, self.model, self.photsys, False)
+
+        self.bin_method = bin_method
         if self.bin_method == 'fixed':
-            self.bins = kwargs.get('bins')
+            self.bins = bins
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'knuth':
+            c_bw, c_bins = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, m_bins = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw, m_bw]
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'blocks':
+            self.bins_edges = [bayesian_blocks(self.c_obs),
+                               bayesian_blocks(self.m_obs)]
+
+        elif self.bin_method == 'halfknuth':
+            c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, _ = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw / 2., m_bw / 2.]
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        self.h_obs, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
 
     # @log_time
-    def eval_lnlike(self, sample_obs, sample_syn):
+    def eval_lnlike(self, sample_syn, sample_obs=None):
         if self.number == 1:
             h_syn = None
-            h_obs = None
-            if self.bin_method == 'fixed':
-                h_obs, h_syn = bin_fixed(sample_obs, sample_syn, self.model, self.photsys, self.bins)
+            h_obs = self.h_obs
 
-            elif self.bin_method == 'knuth':
-                c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
-                h_obs, h_syn = bin_knuth(c_obs, m_obs, c_syn, m_syn)
+            c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+            h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=self.bin_edges)
 
-            elif self.bin_method == 'blocks':
-                c_obs, m_obs, c_syn, m_syn = get_CMD(sample_obs, sample_syn, self.model, self.photsys)
-                h_obs, h_syn = bin_blocks(c_obs, m_obs, c_syn, m_syn)
-
-            if h_syn is None or np.sum(h_syn) <= (np.sum(h_obs) * 2):
+            if h_syn is None or np.sum(h_syn) <= (np.sum(h_obs) * 5):
                 return -np.inf
             else:
                 # h_syn = h_syn / np.sum(h_syn)
@@ -601,17 +627,17 @@ class Hist2Point4CMD(LikelihoodFunc):
                 # lnlike = lnlike - delta
 
                 # version1
-                epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
-                h_syn = h_syn / np.sum(h_syn)
-                h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
-                lnlike = np.sum(h_obs * np.log(h_syn))
+                # epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
+                # h_syn = h_syn / np.sum(h_syn)
+                # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+                # lnlike = np.sum(h_obs * np.log(h_syn))
 
                 # version2
-                # epsilon = 1e-2  # epsilon = 1e-2, for Melotte_22, epsilon=1e-1 is not a solution
-                # h_syn = h_syn * (50000 / np.sum(h_syn))  # 归一化到50000
-                # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
-                # h_syn = h_syn / np.mean(h_syn)  # 为了使典型的log(p)=0, np.mean(h_syn) = np.sum(h_syn)/bins
-                # lnlike = np.sum(h_obs * np.log(h_syn))
+                epsilon = 1e-2  # epsilon = 1e-2, for Melotte_22, epsilon=1e-1 is not a solution
+                h_syn = h_syn * (50000 / np.sum(h_syn))  # 归一化到50000
+                h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+                h_syn = h_syn / np.mean(h_syn)  # 为了使典型的log(p)=0, np.mean(h_syn) = np.sum(h_syn)/bins
+                lnlike = np.sum(h_obs * np.log(h_syn))
 
                 return lnlike
 
@@ -626,38 +652,162 @@ class Hist2Point4CMD(LikelihoodFunc):
             # # delta = np.max(lnlike)
             # # lnlike = lnlike - delta
             # return lnlike
-        elif self.number > 1:
-            source = config.config[self.model][self.photsys]
-            epsilon = 1e-20
-            lnlikes = []
-            for i in range(self.number):
-                m_obs = sample_obs[source['mag'][i]]
-                c_obs = sample_obs[source['color'][i][0]] - sample_obs[source['color'][i][1]]
-                m_syn = sample_syn[source['mag'][i]]
-                c_syn = sample_syn[source['color'][i][0]] - sample_syn[source['color'][i][1]]
-                if isinstance(self.bins, int):
-                    hist_obs = plt.hist2d(c_obs, m_obs, self.bins)
-                    h_obs, xe_obs, ye_obs = hist_obs[0], hist_obs[1], hist_obs[2]
-                    hist_syn = plt.hist2d(c_syn, m_syn, self.bins)
-                    h_syn, xe_syn, ye_syn = hist_syn[0], hist_syn[1], hist_syn[2]
-                elif isinstance(self.bins, tuple):
-                    h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
-                    h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
+        # elif self.number > 1:
+        #     source = config.config[self.model][self.photsys]
+        #     epsilon = 1e-20
+        #     lnlikes = []
+        #     for i in range(self.number):
+        #         m_obs = sample_obs[source['mag'][i]]
+        #         c_obs = sample_obs[source['color'][i][0]] - sample_obs[source['color'][i][1]]
+        #         m_syn = sample_syn[source['mag'][i]]
+        #         c_syn = sample_syn[source['color'][i][0]] - sample_syn[source['color'][i][1]]
+        #         if isinstance(self.bins, int):
+        #             hist_obs = plt.hist2d(c_obs, m_obs, self.bins)
+        #             h_obs, xe_obs, ye_obs = hist_obs[0], hist_obs[1], hist_obs[2]
+        #             hist_syn = plt.hist2d(c_syn, m_syn, self.bins)
+        #             h_syn, xe_syn, ye_syn = hist_syn[0], hist_syn[1], hist_syn[2]
+        #         elif isinstance(self.bins, tuple):
+        #             h_obs, xe_obs, ye_obs = np.histogram2d(c_obs, m_obs, bins=self.bins)
+        #             h_syn, xe_syn, ye_syn = np.histogram2d(c_syn, m_syn, bins=self.bins)
+        #
+        #         h_syn = h_syn / np.sum(h_syn)
+        #         h_syn = h_syn + epsilon
+        #         h_syn = h_syn / np.sum(h_syn)
+        #         aux = np.sum(h_obs * np.log(h_syn))  # / (len(sample_obs) * 100.)
+        #         lnlikes.append(aux)
+        #     lnlike = np.sum(lnlikes)
+        #     # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
+        #     # delta = np.max(lnlike)
+        #     # lnlike = lnlike - delta
+        #     return lnlike
 
-                h_syn = h_syn / np.sum(h_syn)
-                h_syn = h_syn + epsilon
-                h_syn = h_syn / np.sum(h_syn)
-                aux = np.sum(h_obs * np.log(h_syn))  # / (len(sample_obs) * 100.)
-                lnlikes.append(aux)
-            lnlike = np.sum(lnlikes)
-            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
-            # delta = np.max(lnlike)
-            # lnlike = lnlike - delta
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+
+class KLD(LikelihoodFunc):
+    """
+    likelihood = \prod{p_{i}^{n_i}}
+    log(likelihood) =\sum{n_{i}\ln{p_{i}}}
+    """
+
+    def __init__(self,
+                 model,
+                 photsys,
+                 bin_method,
+                 bins=None,
+                 **kwargs):
+        """
+
+        Parameters
+        ----------
+        model
+        photsys
+        bins : array-like, optional, [float, float]
+            [color_bin_width, mag_bin_width]
+        number : int
+            number of CMDs
+        kwargs :
+            'sample_obs'
+        """
+        if bins is None:
+            bins = [0.2, 0.5]
+
+        self.func = 'KLDivergence'
+        self.model = model
+        self.photsys = photsys
+
+        self.sample_obs = kwargs.get('sample_obs')
+        self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
+        # self.cobs_err, self.mobs_err =  CMD.extract_error(self.sample_obs, self.model, self.photsys, False)
+
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = bins
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'knuth':
+            c_bw, c_bins = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, m_bins = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw, m_bw]
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'blocks':
+            self.bins_edges = [bayesian_blocks(self.c_obs),
+                               bayesian_blocks(self.m_obs)]
+
+        elif self.bin_method == 'halfknuth':
+            c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, _ = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw / 2., m_bw / 2.]
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        self.h_obs, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
+        self.h_obs = self.h_obs / np.sum(self.h_obs)
+
+    # @log_time
+    def eval_lnlike(self, sample_syn, sample_obs=None):
+        """
+        NOTE : self.h_obs and h_syn both sum to 1.
+
+        Parameters
+        ----------
+        sample_syn
+        sample_obs
+
+        Returns
+        -------
+
+        """
+        h_syn = None
+        c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+        h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=self.bin_edges)
+
+        if h_syn is None or np.sum(h_syn) <= (np.sum(self.h_obs) * 5):
+            return -np.inf
+
+        else:
+            # version1
+            # epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
+            # h_syn = h_syn / np.sum(h_syn)
+            # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+            # lnlike = np.sum(h_obs * np.log(h_syn))
+
+            # version2
+            # epsilon = 1e-2  # epsilon = 1e-2, for Melotte_22, epsilon=1e-1 is not a solution
+            # h_syn = h_syn * (50000 / np.sum(h_syn))  # 归一化到50000
+            # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+            # h_syn = h_syn / np.mean(h_syn)  # 为了使典型的log(p)=0, np.mean(h_syn) = np.sum(h_syn)/bins
+            # lnlike = np.sum(h_obs * np.log(h_syn))
+
+            h_syn = h_syn / np.sum(h_syn)
+
+            lnlike = -kl_div(self.h_obs, h_syn)
             return lnlike
 
     def get_funcname(self):
         funcname = self.func
         return funcname
+
+
+def kl_div(p, q):
+    """
+    Kullback-Leibler divergence D(P || Q) for discrete distributions
+    Epsilon is used here to avoid infinity result
+    """
+    epsilon = 1e-8
+    p = p + epsilon
+    q = q + epsilon
+
+    divergence = np.sum(p * np.log(p / q))
+    return divergence
 
 
 # def lnlike_2p(theta_age_mh, fb, dm, step, isoc, likelihoodfunc, synstars, n_stars, sample_obs):
@@ -842,22 +992,27 @@ def lnlike(theta_args,
     # !                               Li Lu MIMO & PhD thesis
     # !      dm(for Gaia) range [3, 15] Li Lu MIMO & PhD thesis
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
+    if isinstance(alpha, list):
+        alpha1, alpha2 = alpha
+        condition_alpha = ((alpha1 < 0.) or (alpha1 > 5.0) or (alpha2 < 0.5) or (alpha2 > 5.0))
+    elif isinstance(alpha, float):
+        condition_alpha = ((alpha < 0.5) or (alpha > 5.0))
+
     if position == 'MW':  # Gaia MW
-        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 3.) or (dm > 15.) or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
-                     (alpha < 0.5) or (alpha > 5.0))
+        condition_dm = ((dm < 3.) or (dm > 15.))
+
     elif position == 'LG':
         # CSST Local Group
         # M31:24.47(https://ui.adsabs.harvard.edu/abs/2005MNRAS.356..979M/abstract)
         # LMC:18.5
-        condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
-                     (dm < 15.) or (dm > 22.) or (Av < 0.) or (Av > 2.) or (fb < 0.) or (fb > 1.) or
-                     (alpha < 0.) or (alpha > 5.))  # dm > 28.
-    else:
-        condition = False
+        condition_dm = (dm < 15.) or (dm > 22.)
 
+    condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+                 condition_dm or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
+                 condition_alpha)
     if condition:
         return -np.inf
+
     else:
         if times == 1:
             if likelihoodfunc.get_funcname() == 'DeltaCMD':
@@ -888,7 +1043,9 @@ def lnlike(theta_args,
                 #     lnlike_one = 1e10
                 # else:
                 #     lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
-                lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+
+                # lnlike_one = likelihoodfunc.eval_lnlike(sample_obs, sample_syn)
+                lnlike_one = likelihoodfunc.eval_lnlike(sample_syn)
                 lnlike_list.append(lnlike_one)
 
             lnlike = np.sum(lnlike_list) / times
@@ -943,30 +1100,87 @@ def bin_fixed(sample_obs, sample_syn, model, photsys, bins):
     return h_obs, h_syn
 
 
-def bin_knuth(c_obs, m_obs, c_syn, m_syn):
+def bin_knuth(
+        c_obs,
+        m_obs,
+        c_syn,
+        m_syn,
+        usesyn=False):
     """
-    NOT recommand!!
+    usesyn=True, is NOT recommand!! For one observation CMD, different bins will be used,
+    which may cause likelihood unstable.
+
     Parameters
     ----------
-    sample_obs
-    sample_syn
-    model
-    photsys
+    c_obs
+    m_obs
+    c_syn
+    m_syn
+    usesyn
 
     Returns
     -------
 
     """
-    bin_edges = [knuth_bin_width(c_obs, return_bins=True, quiet=True)[1],
-                 knuth_bin_width(m_obs, return_bins=True, quiet=True)[1]]
+    if usesyn:
+
+        # Define the ranges
+        c_min, c_max = c_obs.min(), c_obs.max()
+        m_min, m_max = m_obs.min(), m_obs.max()
+
+        # Filter out data points outside the ranges
+        mask = (c_syn >= c_min) & (c_syn <= c_max) & (m_syn >= m_min) & (m_syn <= m_max)
+        c_syn_filtered = c_syn[mask]
+        m_syn_filtered = m_syn[mask]
+
+        bin_edges = [knuth_bin_width(c_syn_filtered, return_bins=True, quiet=True)[1],
+                     knuth_bin_width(m_syn_filtered, return_bins=True, quiet=True)[1]]
+    else:
+        bin_edges = [knuth_bin_width(c_obs, return_bins=True, quiet=True)[1],
+                     knuth_bin_width(m_obs, return_bins=True, quiet=True)[1]]
+
     h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
     h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
     return h_obs, h_syn
 
 
-def bin_blocks(c_obs, m_obs, c_syn, m_syn):
-    bin_edges = [bayesian_blocks(c_obs),
-                 bayesian_blocks(m_obs)]
+def bin_blocks(
+        c_obs,
+        m_obs,
+        c_syn,
+        m_syn,
+        usesyn=True):
+    """
+    usesyn=True, is NOT recommand!! For one observation CMD, different bins will be used,
+    which may cause likelihood unstable.
+
+    Parameters
+    ----------
+    c_obs
+    m_obs
+    c_syn
+    m_syn
+    usesyn
+
+    Returns
+    -------
+
+    """
+    if usesyn:
+        # Define the ranges
+        c_min, c_max = c_obs.min(), c_obs.max()
+        m_min, m_max = m_obs.min(), m_obs.max()
+
+        # Filter out data points outside the ranges
+        mask = (c_syn >= c_min) & (c_syn <= c_max) & (m_syn >= m_min) & (m_syn <= m_max)
+        c_syn_filtered = c_syn[mask]
+        m_syn_filtered = m_syn[mask]
+
+        bin_edges = [bayesian_blocks(c_syn_filtered),
+                     bayesian_blocks(m_syn_filtered)]
+    else:
+        bin_edges = [bayesian_blocks(c_obs),
+                     bayesian_blocks(m_obs)]
     h_obs, _, _ = np.histogram2d(c_obs, m_obs, bins=bin_edges)
     h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=bin_edges)
     return h_obs, h_syn
