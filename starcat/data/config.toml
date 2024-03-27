@@ -7,18 +7,25 @@
 
 # 数据存放路径 data_dir
 # 等龄线模型存放路径 data_dir + isoc_dir
-data_dir = 'local' # 'raku' 'dandelion' 'local'
+data_dir = 'local' # 'raku' 'dandelion' 'local' 'nova'
 raku = '/data/share/syy/starcat/' # raku
 dandelion = '/data/syy/starcat/' # dandelion
 local = '/Users/sara/PycharmProjects/starcat/data/' # local
+nova = '/home/zhaox/mydata/syy/starcat/' # nova
 
 # observation data details
 [observation.gaiaDR3]
-bands = ['Gmag', 'BPmag', 'RPmag']
-bands_err = ['G_err', 'BP_err', 'RP_err']
-prob = 'Prob'
 mag = ['Gmag']
 color = [['BPmag', 'RPmag']]
+mag_err = ['e_Gmag']
+color_err = [['e_BPmag', 'e_RPmag']]
+bands = ['Gmag', 'BPmag', 'RPmag']
+bands_err = ['e_Gmag', 'e_BPmag', 'e_RPmag']
+#bands = ['Gmag', 'BPmag', 'RPmag']
+#bands_err = ['G_err', 'BP_err', 'RP_err']
+#prob = 'Prob'
+#mag = ['Gmag']
+#color = [['BPmag', 'RPmag']]
 
 [observation.CSST] # validation
 mag = ['i']
@@ -40,8 +47,10 @@ bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 mini = 'Mini'
 # ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
-band_max = [18.0, 19.5, 18.2]
+band_max = [18.0, 20.1, 16.7] #melotte_22_above18
+# band_max = [18.0, 19.5, 18.2]
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
+# These values are for a G2V star, using Cardelli et al. (1989) + O'Donnell (1994) extinction curve with Rv=3.1.
 extinction_coefs = [
     [6390.21, 4416.0, 0.83627], # G
     [5182.58, 2617.0, 1.08337], # BP
@@ -56,32 +65,32 @@ color = [['BP', 'RP']]
 [parsec.CSST]
 isoc_dir = 'isochrones/parsec/CSST/'
 # column name in parsec
-#bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
-bands_isoc = ['gmag', 'imag']
+bands_isoc = ['NUVmag', 'umag', 'gmag', 'rmag', 'imag', 'zmag', 'ymag']
+#bands_isoc = ['gmag', 'imag']
 mini = 'Mini'
 # mass = 'Mass'
 # ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
-#bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-#bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
-bands = ['g', 'i']
+bands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
+# bands_err = ['NUV_err', 'u_err', 'g_err', 'r_err', 'i_err', 'z_err', 'y_err']
+#bands = ['g', 'i']
 # band_max = instrument limit + 0.5(consider faint binary) ;
 # instrumental limiting magnitude: g<26, NUV,u,r,i,z<25.5, y<24
-#band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
-band_max = [25.5, 24.0] # g, i
+band_max = [25.5, 25.5, 26.0, 25.5, 25.5, 25.5, 24.0]
+#band_max = [25.5, 24.0] # g, i
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
-#extinction_coefs = [
-#    [2887.74, 609.0, 1.88462], # NUV
-#    [3610.40, 759.0, 1.55299], # u
-#    [4811.96, 1357.0, 1.19715], # g
-#    [6185.81, 1435.0, 0.86630], # r
-#    [7641.61, 1536.0, 0.66204], # i
-#    [9043.96, 1108.0, 0.47508], # z
-#    [9660.53, 633.0, 0.42710]   # y
-#]
 extinction_coefs = [
+    [2887.74, 609.0, 1.88462], # NUV
+    [3610.40, 759.0, 1.55299], # u
     [4811.96, 1357.0, 1.19715], # g
-    [7641.61, 1536.0, 0.66204]  # i
+    [6185.81, 1435.0, 0.86630], # r
+    [7641.61, 1536.0, 0.66204], # i
+    [9043.96, 1108.0, 0.47508], # z
+    [9660.53, 633.0, 0.42710]   # y
 ]
+#extinction_coefs = [
+#    [4811.96, 1357.0, 1.19715], # g
+#    [7641.61, 1536.0, 0.66204]  # i
+#]
 mag = ['i']
 color = [['g', 'i']]
 
