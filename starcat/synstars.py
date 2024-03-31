@@ -67,7 +67,11 @@ class SynStars(object):
             logage_step
             mh_step
         """
-        logage, mh, dm, Av, fb, alpha = theta
+        if len(theta) == 6:
+            logage, mh, dm, Av, fb, alpha = theta
+        elif len(theta) == 7:
+            logage, mh, dm, Av, fb, alpha, err = theta
+
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
         # !step 1: logage, mh ==> isoc [phase, mini, [bands]]
@@ -101,7 +105,7 @@ class SynStars(object):
         if self.photsys == 'CSST':  # and len(self.bands) != 2
             best_rate = 1.2  # if discard only when all bands ar below magnitude limit
         else:  # or len(self.bands) == 2
-            best_rate = 1.8  # best_rate = 2
+            best_rate = 1.5  # best_rate = 1.8
         batch_size = int(n_stars * best_rate)  # test results show that *1.2 can maximize the use of synthetic
         test_sample_time = 0
         total_size = batch_size
@@ -112,7 +116,10 @@ class SynStars(object):
             sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha)
 
             # !step 4: add photometry error for synthetic sample
-            sample_syn = self.photerr.add_syn_photerr(sample_syn)
+            if len(theta) == 6:
+                sample_syn = self.photerr.add_syn_photerr(sample_syn)
+            elif len(theta) == 7:
+                sample_syn = self.photerr.add_syn_photerr(sample_syn, absolute_error=err)
 
             # !step 5: (deleted!) 1. discard nan&inf values primarily due to failed interpolate
             # !        2. 只有在所有波段都暗于极限星等时才丢弃！即只有当一颗星在所有波段都不可见时才丢弃，只要这颗星在任一波段可见，则保留。
@@ -411,6 +418,7 @@ class SynStars(object):
         Parameters
         ----------
         isoc : pd.DataFrame
+            observed isochrone
         dm : float
 
         """
@@ -456,6 +464,7 @@ class SynStars(object):
         ----------
         alpha : imf slope
         isoc : pd.DataFrame
+            observed isochrone
         n_stars : int
         fb : float
 

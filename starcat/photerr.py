@@ -150,7 +150,7 @@ class GaiaDR3(Photerr):
 
 
 class Individual(Photerr):
-    def __init__(self, model, photsys, observation):
+    def __init__(self, model, photsys, observation, add_error='none'):
         """
 
         Parameters
@@ -159,6 +159,8 @@ class Individual(Photerr):
         photsys
         observation : pd.DataFrame
             observation data
+        add_error : string
+            'absolute error' or 'relative error' or 'none'
         """
         # model details
         source = config.config[model][photsys]
@@ -179,13 +181,38 @@ class Individual(Photerr):
             aux = aux.sort_values(by=self.o_bands[i], ascending=True)
             self.mag_magerr.append(aux)
 
+        self.add_error = add_error
+
     def add_syn_photerr(self, sample_syn, **kwargs):
+        """
+
+        Parameters
+        ----------
+        sample_syn
+        *kwargs :
+            absolute_error : float
+
+        Returns
+        -------
+
+        """
         num = len(sample_syn)
         for j in range(len(self.bands)):
             xp = self.mag_magerr[j][self.o_bands[j]]
             fp = self.mag_magerr[j][self.oe_bands[j]]
             mag_syn = np.array(sample_syn[self.bands[j]])
             mag_err = np.interp(mag_syn, xp, fp)
+
+            # test for spread uncertainty
+            if self.add_error == 'absolute error':
+                absolute_err = kwargs.get('absolute_error')
+                mag_err = np.sqrt(np.square(mag_err) + np.square(absolute_err))
+
+            elif self.add_error == 'relative error':
+                relative_err = 0.001  # delta as parameter
+                absolute_err = relative_err * mag_syn
+                mag_err = np.sqrt(np.square(mag_err) + np.square(absolute_err))
+
             standard = np.random.normal(0, 1, size=num)
             sample_syn[self.bands[j]] = mag_syn + mag_err * standard
             sample_syn['%s_err' % self.bands[j]] = mag_err * standard
