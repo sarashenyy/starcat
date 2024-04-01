@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from math import comb
 
 import numpy as np
+import pandas as pd
 from astropy.stats import knuth_bin_width, bayesian_blocks
 from scipy import signal
 from scipy.stats import energy_distance, gaussian_kde
@@ -22,7 +23,7 @@ class LikelihoodFunc(ABC):
         pass
 
 
-class Hist2Hist4CMD(LikelihoodFunc):
+class Gaussian2D(LikelihoodFunc):
     """
     lnlike(H_{syn},H_{obs}) = -\frac{1}{2}\sum{\frac{(H_{obs}-H_{syn})^2}{H_{obs}+H_{syn}+1}}
     """
@@ -903,6 +904,14 @@ class KLD(LikelihoodFunc):
             m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
             self.bin_edges = [c_bins, m_bins]
 
+        elif self.bin_method == 'halfequal':
+            # euqal frequency for mag axis
+            binnum_m = int(len(self.m_obs) ** (2 / 5) * 2)
+            _, m_bins = pd.qcut(self.m_obs, q=binnum_m, retbins=True, labels=False, duplicates='drop')
+            c_bw = 0.2
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            self.bin_edges = [c_bins, m_bins]
+
         self.h_obs, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
 
     # @log_time
@@ -944,7 +953,9 @@ class KLD(LikelihoodFunc):
             h_syn = h_syn / np.sum(h_syn)  # norm h_syn
             h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
             h_obs_e = np.where(self.h_obs < 1.0, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
-            lnlike = np.sum(self.h_obs * np.log(h_syn)) - np.sum(self.h_obs * np.log(h_obs_e))
+            lnlike = np.sum(
+                (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
+            )
 
             return lnlike
 
@@ -1143,6 +1154,12 @@ def lnlike(theta_args,
         logage = round_to_step(logage, logage_step)
         mh = round_to_step(mh, mh_step)
         theta = logage, mh, dm, Av, fb, alpha
+
+    elif len(theta_args) == 7:
+        logage, mh, dm, Av, fb, alpha, err = theta_args
+        logage = round_to_step(logage, logage_step)
+        mh = round_to_step(mh, mh_step)
+        theta = logage, mh, dm, Av, fb, alpha, err
 
     # !NOTE: theta range, dm(LMC,SMC~18.5, M31~24.5)
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
