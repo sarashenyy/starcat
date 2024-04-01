@@ -730,7 +730,7 @@ class Hist2Point4CMD(LikelihoodFunc):
         return funcname
 
 
-class Gaussian(LikelihoodFunc):
+class Gaussian1D(LikelihoodFunc):
     """
     * WRONG!!
     likelihood = \prod{p_{i}^{n_i}}
