@@ -113,7 +113,6 @@ class BinSimple(BinMethod):
 
 class BinMRD(BinMethod):
     """
-    TODO: WRONG!! WATING FOR DEBUG!!
     add condition: q > 0.09/primass
     sample secondary mass from distribution q^gamma(default gamma=0)
     """
