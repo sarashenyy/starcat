@@ -75,8 +75,8 @@ class Gaussian2D(LikelihoodFunc):
             self.bin_edges = [c_bins, m_bins]
 
         elif self.bin_method == 'blocks':
-            self.bins_edges = [bayesian_blocks(self.c_obs),
-                               bayesian_blocks(self.m_obs)]
+            self.bin_edges = [bayesian_blocks(self.c_obs),
+                              bayesian_blocks(self.m_obs)]
 
         elif self.bin_method == 'halfknuth':
             c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
@@ -392,7 +392,7 @@ class DeltaCMD(LikelihoodFunc):
         self.photsys = photsys
 
         if bins is None:
-            bins = [21, 30]
+            bins = [20, 30]
 
         # if isinstance(bins[0], int):
         #     self.binnum_dc, self.binnum_w = bins[0], bins[1]
@@ -403,9 +403,12 @@ class DeltaCMD(LikelihoodFunc):
         self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
 
         # find ridgeline, calculate delta color
-        self.ridgeline = find_rigdeline(self.c_obs, self.m_obs)
-        self.rc_obs, _ = self.ridgeline.predict(self.m_obs.reshape(-1, 1))
-        self.rc_obs = self.rc_obs.ravel()
+        ridgeline = find_rigdeline(self.c_obs, self.m_obs)
+        self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
+        RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
+        self.RL_c = RL_c.ravel()
+
+        self.rc_obs = self.RL(self.m_obs)
         self.dc_obs = self.c_obs - self.rc_obs
 
         self.bin_method = bin_method
@@ -430,11 +433,15 @@ class DeltaCMD(LikelihoodFunc):
 
         self.dh_obs, _, _ = np.histogram2d(self.dc_obs, self.m_obs, bins=self.bin_edges)
 
+    def RL(self, m):
+        """ speed up for gp.predict"""
+        rc = np.interp(m, self.RL_m, self.RL_c)
+        return rc
+
     def eval_lnlike(self, sample_syn, sample_obs=None):
         dh_syn = None
         c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
-        rc_syn, _ = self.ridgeline.predict(m_syn.reshape(-1, 1))
-        rc_syn = rc_syn.ravel()
+        rc_syn = self.RL(m_syn)
         dc_syn = c_syn - rc_syn
         dh_syn, _, _ = np.histogram2d(dc_syn, m_syn, bins=self.bin_edges)
 
@@ -683,8 +690,8 @@ class Hist2Point4CMD(LikelihoodFunc):
             self.bin_edges = [c_bins, m_bins]
 
         elif self.bin_method == 'blocks':
-            self.bins_edges = [bayesian_blocks(self.c_obs),
-                               bayesian_blocks(self.m_obs)]
+            self.bin_edges = [bayesian_blocks(self.c_obs),
+                              bayesian_blocks(self.m_obs)]
 
         elif self.bin_method == 'halfknuth':
             c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
@@ -856,8 +863,8 @@ class Gaussian1D(LikelihoodFunc):
             self.bin_edges = [c_bins, m_bins]
 
         elif self.bin_method == 'blocks':
-            self.bins_edges = [bayesian_blocks(self.c_obs),
-                               bayesian_blocks(self.m_obs)]
+            self.bin_edges = [bayesian_blocks(self.c_obs),
+                              bayesian_blocks(self.m_obs)]
 
         elif self.bin_method == 'halfknuth':
             c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
@@ -964,8 +971,8 @@ class KLD(LikelihoodFunc):
             self.bin_edges = [c_bins, m_bins]
 
         elif self.bin_method == 'blocks':
-            self.bins_edges = [bayesian_blocks(self.c_obs),
-                               bayesian_blocks(self.m_obs)]
+            self.bin_edges = [bayesian_blocks(self.c_obs),
+                              bayesian_blocks(self.m_obs)]
 
         elif self.bin_method == 'halfknuth':
             c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
@@ -1029,6 +1036,153 @@ class KLD(LikelihoodFunc):
                 (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
             )
 
+            return lnlike
+
+    def get_funcname(self):
+        funcname = self.func
+        return funcname
+
+
+class KLDplusDCMD(LikelihoodFunc):
+    """
+    likelihood = \prod{p_{i}^{n_i}}
+    log(likelihood) =\sum{n_{i}\ln{p_{i}}}
+    """
+
+    def __init__(self,
+                 model,
+                 photsys,
+                 bin_method,
+                 bins=None,
+                 **kwargs):
+        """
+
+        Parameters
+        ----------
+        model
+        photsys
+        bins : array-like, optional, [float, float]
+            [color_bin_width, mag_bin_width]
+        number : int
+            number of CMDs
+        kwargs :
+            'sample_obs'
+        """
+        if bins is None:
+            bins = [0.2, 0.5]
+
+        self.func = 'KLDplusDCMD'
+        self.model = model
+        self.photsys = photsys
+
+        self.sample_obs = kwargs.get('sample_obs')
+        self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
+
+        # find ridgeline, calculate delta color
+        ridgeline = find_rigdeline(self.c_obs, self.m_obs)
+        self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
+        RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
+        self.RL_c = RL_c.ravel()
+
+        self.rc_obs = self.RL(self.m_obs)
+        self.dc_obs = self.c_obs - self.rc_obs
+
+        self.bin_method = bin_method
+        if self.bin_method == 'fixed':
+            self.bins = bins
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'knuth':
+            c_bw, c_bins = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, m_bins = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw, m_bw]
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'blocks':
+            self.bin_edges = [bayesian_blocks(self.c_obs),
+                              bayesian_blocks(self.m_obs)]
+
+        elif self.bin_method == 'halfknuth':
+            c_bw, _ = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
+            m_bw, _ = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bins = [c_bw / 2., m_bw / 2.]
+            c_bw, m_bw = self.bins
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        elif self.bin_method == 'halfequal':
+            # euqal frequency for mag axis
+            binnum_m = int(len(self.m_obs) ** (2 / 5) * 2)
+            _, m_bins = pd.qcut(self.m_obs, q=binnum_m, retbins=True, labels=False, duplicates='drop')
+            c_bw = 0.2
+            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
+            self.bin_edges = [c_bins, m_bins]
+
+        self.h_obs, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
+
+        dc_binnum = len(self.bin_edges[1])
+        dc_bins = np.linspace(start=np.min(self.dc_obs), stop=np.max(self.dc_obs), num=dc_binnum)
+        self.bin_edges_dcmd = [dc_bins, self.bin_edges[1]]
+        self.dh_obs, _, _ = np.histogram2d(self.dc_obs, self.m_obs, bins=self.bin_edges_dcmd)
+
+    def RL(self, m):
+        """ speed up for gp.predict"""
+        rc = np.interp(m, self.RL_m, self.RL_c)
+        return rc
+
+    # @log_time
+    def eval_lnlike(self, sample_syn, sample_obs=None):
+        """
+        NOTE : self.h_obs and h_syn both sum to 1.
+
+        Parameters
+        ----------
+        sample_syn
+        sample_obs
+
+        Returns
+        -------
+
+        """
+        # CMD syn
+        h_syn = None
+        c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+        h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=self.bin_edges)
+
+        # dCMD syn
+        dh_syn = None
+        rc_syn = self.RL(m_syn)
+        dc_syn = c_syn - rc_syn
+        dh_syn, _, _ = np.histogram2d(dc_syn, m_syn, bins=self.bin_edges_dcmd)
+
+        if (h_syn is None or np.sum(h_syn) <= (np.sum(self.h_obs) * 5) or
+                dh_syn is None or np.sum(dh_syn) <= (np.sum(self.dh_obs) * 5)):
+            return -np.inf
+
+        else:
+            # KLD for CMD
+            epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
+            h_syn = h_syn / np.sum(h_syn)  # norm h_syn
+            h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+            h_obs_e = np.where(self.h_obs < 1.0, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
+            lnlike_cmd = np.sum(
+                (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
+            )
+
+            # KLD for dCMD
+            depsilon = (1 / np.sum(dh_syn) * 1e-2)
+            dh_syn = dh_syn / np.sum(dh_syn)
+            dh_syn = np.where(dh_syn < depsilon, depsilon, dh_syn)
+            dh_obs_e = np.where(self.dh_obs < 1.0, 1e-2, self.dh_obs)
+            lnlike_dcmd = np.sum(
+                (self.dh_obs * np.log(dh_syn)) - (self.dh_obs * np.log(dh_obs_e))
+            )
+
+            lnlike = lnlike_cmd + lnlike_dcmd
             return lnlike
 
     def get_funcname(self):
