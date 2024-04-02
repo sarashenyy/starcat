@@ -1242,7 +1242,7 @@ def lnlike(theta_args,
         alpha1, alpha2 = alpha
         condition_alpha = ((alpha1 < 0.) or (alpha1 > 5.0) or (alpha2 < 0.5) or (alpha2 > 5.0))
     elif isinstance(alpha, float):
-        condition_alpha = ((alpha < 0.5) or (alpha > 5.0))
+        condition_alpha = ((alpha < 0.) or (alpha > 5.0))
 
     if position == 'MW':  # Gaia MW
         condition_dm = ((dm < 3.) or (dm > 15.))
