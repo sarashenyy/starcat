@@ -1240,7 +1240,7 @@ def lnlike(theta_args,
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if isinstance(alpha, list):
         alpha1, alpha2 = alpha
-        condition_alpha = ((alpha1 < 0.) or (alpha1 > 5.0) or (alpha2 < 0.5) or (alpha2 > 5.0))
+        condition_alpha = ((alpha1 < 0.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0))
     elif isinstance(alpha, float):
         condition_alpha = ((alpha < 0.) or (alpha > 5.0))
 
