@@ -6,10 +6,10 @@ from math import comb
 import numpy as np
 import pandas as pd
 from astropy.stats import knuth_bin_width, bayesian_blocks
+from robustgp import ITGP
 from scipy import signal
 from scipy.stats import energy_distance, gaussian_kde
 
-from . import config
 from .cmd import CMD
 from .widgets import round_to_step
 
@@ -154,7 +154,6 @@ class Gaussian2D(LikelihoodFunc):
                 #                    cmap=plt.cm.RdBu, norm=norm)  # extent=[xe_obs[0], xe_obs[-1], ye_obs[-1], ye_obs[0]]
                 # cbar_obs = fig.colorbar(im_obs, ax=ax, label='Count (resid)')
                 # plt.show()
-
 
                 # lnlike = -(0.5 / n_obs) * np.sum(np.square(h_obs - h_syn) / (h_obs + h_syn + 1))
                 # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
@@ -363,61 +362,134 @@ class EnergyDistance(LikelihoodFunc):
 
 
 class DeltaCMD(LikelihoodFunc):
+    """
+    only for binary fraction and alpha
+    """
 
     def __init__(self,
                  model,
                  photsys,
                  bin_method,
+                 bins=None,
                  **kwargs):
+        """
+        dCMD : delta color(obs - rigdeline) vs. mag
+
+        Parameters
+        ----------
+        model
+        photsys
+        bin_method : string
+        bins : [float, float] / [int, int], optional
+            [int, int] : binnum_dc, binnum_m
+            [float, float] : binwidth_dc, binwidth_m
+        kwargs :
+            'sample_obs'
+        """
+
         self.func = 'DeltaCMD'
         self.model = model
         self.photsys = photsys
+
+        if bins is None:
+            bins = [21, 30]
+
+        # if isinstance(bins[0], int):
+        #     self.binnum_dc, self.binnum_w = bins[0], bins[1]
+        # elif isinstance(bins[0], float):
+        #     self.bw_dc, self.bw_m = bins[0], bins[1]
+
+        self.sample_obs = kwargs.get('sample_obs')
+        self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
+
+        # find ridgeline, calculate delta color
+        self.ridgeline = find_rigdeline(self.c_obs, self.m_obs)
+        self.rc_obs, _ = self.ridgeline.predict(self.m_obs.reshape(-1, 1))
+        self.rc_obs = self.rc_obs.ravel()
+        self.dc_obs = self.c_obs - self.rc_obs
+
         self.bin_method = bin_method
         if self.bin_method == 'fixed':
-            self.bins = kwargs.get('bins')
+            self.bins = bins
+            if isinstance(bins[0], int):
+                dc_binnum, m_binnum = self.bins
+                dc_bins = np.linspace(start=np.min(self.dc_obs), stop=np.max(self.dc_obs), num=dc_binnum + 1)
+                m_bins = np.linspace(start=np.min(self.m_obs), stop=np.max(self.m_obs), num=m_binnum + 1)
+            elif isinstance(bins[0], float):
+                dc_bw, m_bw = self.bins
+                dc_bins = np.arange(start=np.min(self.dc_obs) - 0.5 * dc_bw, stop=np.max(self.m_obs) + 0.5 * dc_bw,
+                                    step=dc_bw)
+                m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw,
+                                   step=m_bw)
+            self.bin_edges = [dc_bins, m_bins]
 
-    def eval_lnlike(self, sample_obs, sample_syn):
-        source = config.config[self.model][self.photsys]
-        m_obs = sample_obs[source['mag']].values.ravel()
-        dc_obs = sample_obs['delta_c'].values.ravel()
-        m_syn = sample_syn[source['mag']].values.ravel()
-        dc_syn = sample_syn['delta_c'].values.ravel()
+        elif self.bin_method == 'knuth':
+            dc_bw, dc_bins = knuth_bin_width(self.dc_obs, return_bins=True, quiet=True)
+            m_bw, m_bins = knuth_bin_width(self.m_obs, return_bins=True, quiet=True)
+            self.bin_edges = [dc_bins, m_bins]
 
-        h_syn = None
-        h_obs = None
-        if self.bin_method == 'knuth':
-            h_obs, h_syn = bin_knuth(dc_obs, m_obs, dc_syn, m_syn)
+        self.dh_obs, _, _ = np.histogram2d(self.dc_obs, self.m_obs, bins=self.bin_edges)
 
-        elif self.bin_method == 'blocks':
-            h_obs, h_syn = bin_blocks(dc_obs, m_obs, dc_syn, m_syn)
+    def eval_lnlike(self, sample_syn, sample_obs=None):
+        dh_syn = None
+        c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+        rc_syn, _ = self.ridgeline.predict(m_syn.reshape(-1, 1))
+        rc_syn = rc_syn.ravel()
+        dc_syn = c_syn - rc_syn
+        dh_syn, _, _ = np.histogram2d(dc_syn, m_syn, bins=self.bin_edges)
 
-        if h_syn is None or np.sum(h_syn) == 0:
+        if dh_syn is None or np.sum(dh_syn) <= (np.sum(self.dh_obs) * 5):
             return -np.inf
         else:
-            # h_syn = h_syn / np.sum(h_syn)
-            epsilon = 1e-20
-            h_syn = h_syn + epsilon
-            h_syn = h_syn / np.sum(h_syn)
-            # lnlike = np.sum(h_obs * np.log10(h_syn))
-            # lnlike = np.sum(h_obs * np.log(h_syn))
-            # ! 增加 H_obs 归一化，是否正确？这样的话，似然函数的大小不会受到 Nstar 的影响；也能减小似然的整体数值
-            # ! 如果不把 H_obs 也归一化，lnlike负太大，导致 exp(-lnlike)=0, 是均为0！
-            h_obs = h_obs / np.sum(h_obs)
+            epsilon = (1 / np.sum(dh_syn) * 1e-2)
+            dh_syn = dh_syn / np.sum(dh_syn)
+            dh_syn = np.where(dh_syn < epsilon, epsilon, dh_syn)
+            dh_obs_e = np.where(self.dh_obs < 1.0, 1e-2, self.dh_obs)
+            lnlike = np.sum(
+                (self.dh_obs * np.log(dh_syn)) - (self.dh_obs * np.log(dh_obs_e))
+            )
 
-            #  Hsyn 归一化到 Hobs, 返回 nan
-            # n_syn = len(sample_syn)  # 我发现了盲点！
-            # n_obs = len(sample_obs)
-            # h_syn = h_syn / (n_syn / n_obs)
-
-            lnlike = np.sum(h_obs * np.log(h_syn))
-            # # * NOTE correction, make max(lnlike_list)=0 !! IN corner_tests.draw_corner.py !!
-            # delta = np.max(lnlike)
-            # lnlike = lnlike - delta
-            return lnlike
+        return lnlike
+        # source = config.config[self.model][self.photsys]
+        # m_obs = sample_obs[source['mag']].values.ravel()
+        # dc_obs = sample_obs['delta_c'].values.ravel()
+        # m_syn = sample_syn[source['mag']].values.ravel()
+        # dc_syn = sample_syn['delta_c'].values.ravel()
+        #
+        # h_syn = None
+        # h_obs = None
+        # if self.bin_method == 'knuth':
+        #     h_obs, h_syn = bin_knuth(dc_obs, m_obs, dc_syn, m_syn)
+        #
+        # elif self.bin_method == 'blocks':
+        #     h_obs, h_syn = bin_blocks(dc_obs, m_obs, dc_syn, m_syn)
+        #
+        # if h_syn is None or np.sum(h_syn) == 0:
+        #     return -np.inf
+        # else:
+        #     # h_syn = h_syn / np.sum(h_syn)
+        #     epsilon = 1e-20
+        #     h_syn = h_syn + epsilon
+        #     h_syn = h_syn / np.sum(h_syn)
+        #     h_obs = h_obs / np.sum(h_obs)
+        #
+        #     lnlike = np.sum(h_obs * np.log(h_syn))
+        #     # delta = np.max(lnlike)
+        #     # lnlike = lnlike - delta
+        #     return lnlike
 
     def get_funcname(self):
         funcname = self.func
         return funcname
+
+
+def find_rigdeline(color, mag):
+    res = ITGP(mag, color,
+               alpha1=0.5, alpha2=0.975, nsh=2, ncc=2, nrw=1,
+               optimize_kwargs=dict(optimizer='lbfgsb')
+               )
+    gp, consistency = res.gp, res.consistency
+    return gp
 
 
 class GaussianKDE(LikelihoodFunc):
@@ -1189,11 +1261,12 @@ def lnlike(theta_args,
 
     else:
         if times == 1:
-            if likelihoodfunc.get_funcname() == 'DeltaCMD':
-                sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
-                                                          mh_step=mh_step)
-            else:
-                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            # if likelihoodfunc.get_funcname() == 'DeltaCMD':
+            #     sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
+            #                                               mh_step=mh_step)
+            # else:
+            #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
 
             if sample_syn is False:
                 # return 1e10
@@ -1208,11 +1281,13 @@ def lnlike(theta_args,
             # * without acceleration
             lnlike_list = []
             for i in range(times):
-                if likelihoodfunc.get_funcname() == 'DeltaCMD':
-                    sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
-                                                              mh_step=mh_step)
-                else:
-                    sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+                # if likelihoodfunc.get_funcname() == 'DeltaCMD':
+                #     sample_syn = synstars.delta_color_samples(theta, n_stars, isoc, logage_step=logage_step,
+                #                                               mh_step=mh_step)
+                # else:
+                #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+
                 # if sample_syn is False:
                 #     lnlike_one = 1e10
                 # else:
