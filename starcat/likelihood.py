@@ -1,4 +1,5 @@
 import math
+import time
 import warnings
 from abc import ABC, abstractmethod
 from math import comb
@@ -6,7 +7,6 @@ from math import comb
 import numpy as np
 import pandas as pd
 from astropy.stats import knuth_bin_width, bayesian_blocks
-from robustgp import ITGP
 from scipy import signal
 from scipy.stats import energy_distance, gaussian_kde
 
@@ -385,6 +385,8 @@ class DeltaCMD(LikelihoodFunc):
             [float, float] : binwidth_dc, binwidth_m
         kwargs :
             'sample_obs'
+            'RL_c'
+            'RL_m'
         """
 
         self.func = 'DeltaCMD'
@@ -403,10 +405,15 @@ class DeltaCMD(LikelihoodFunc):
         self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
 
         # find ridgeline, calculate delta color
-        ridgeline = find_rigdeline(self.c_obs, self.m_obs)
-        self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
-        RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
-        self.RL_c = RL_c.ravel()
+        # find ridgeline, calculate delta color
+        RL_c, RL_m = kwargs.get('RL_c'), kwargs.get('RL_m')
+        if RL_c is None or RL_m is None:
+            ridgeline = CMD.find_rigdeline(self.c_obs, self.m_obs)
+            self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
+            RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
+            self.RL_c = RL_c.ravel()
+        else:
+            self.RL_c, self.RL_m = RL_c, RL_m
 
         self.rc_obs = self.RL(self.m_obs)
         self.dc_obs = self.c_obs - self.rc_obs
@@ -488,15 +495,6 @@ class DeltaCMD(LikelihoodFunc):
     def get_funcname(self):
         funcname = self.func
         return funcname
-
-
-def find_rigdeline(color, mag):
-    res = ITGP(mag, color,
-               alpha1=0.5, alpha2=0.975, nsh=2, ncc=2, nrw=1,
-               optimize_kwargs=dict(optimizer='lbfgsb')
-               )
-    gp, consistency = res.gp, res.consistency
-    return gp
 
 
 class GaussianKDE(LikelihoodFunc):
@@ -1067,7 +1065,11 @@ class KLDplusDCMD(LikelihoodFunc):
             number of CMDs
         kwargs :
             'sample_obs'
+            'RL_c'
+            'RL_m'
         """
+        print(f'start init KLDplusDCMD...')
+        st = time.time()
         if bins is None:
             bins = [0.2, 0.5]
 
@@ -1079,10 +1081,14 @@ class KLDplusDCMD(LikelihoodFunc):
         self.c_obs, self.m_obs = CMD.extract_cmd(self.sample_obs, self.model, self.photsys, False)
 
         # find ridgeline, calculate delta color
-        ridgeline = find_rigdeline(self.c_obs, self.m_obs)
-        self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
-        RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
-        self.RL_c = RL_c.ravel()
+        RL_c, RL_m = kwargs.get('RL_c'), kwargs.get('RL_m')
+        if RL_c is None or RL_m is None:
+            ridgeline = CMD.find_rigdeline(self.c_obs, self.m_obs)
+            self.RL_m = np.linspace(np.min(self.m_obs), np.max(self.m_obs), 100)
+            RL_c, _ = ridgeline.predict(self.RL_m.reshape(-1, 1))
+            self.RL_c = RL_c.ravel()
+        else:
+            self.RL_c, self.RL_m = RL_c, RL_m
 
         self.rc_obs = self.RL(self.m_obs)
         self.dc_obs = self.c_obs - self.rc_obs
@@ -1129,6 +1135,9 @@ class KLDplusDCMD(LikelihoodFunc):
         self.bin_edges_dcmd = [dc_bins, self.bin_edges[1]]
         self.dh_obs, _, _ = np.histogram2d(self.dc_obs, self.m_obs, bins=self.bin_edges_dcmd)
 
+        ed = time.time()
+        print(f'finish init {self.func} in {ed - st:.2f}s')
+
     def RL(self, m):
         """ speed up for gp.predict"""
         rc = np.interp(m, self.RL_m, self.RL_c)
@@ -1148,9 +1157,14 @@ class KLDplusDCMD(LikelihoodFunc):
         -------
 
         """
+        c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
+        obs_range = ((m_syn >= np.min(self.m_obs)) and (m_syn <= np.max(self.m_obs)) and
+                     (c_syn >= np.min(self.c_obs)) and (c_syn <= np.max(self.c_obs)))
+        m_syn = m_syn[obs_range]
+        c_syn = c_syn[obs_range]
+
         # CMD syn
         h_syn = None
-        c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
         h_syn, _, _ = np.histogram2d(c_syn, m_syn, bins=self.bin_edges)
 
         # dCMD syn
@@ -1169,8 +1183,11 @@ class KLDplusDCMD(LikelihoodFunc):
             h_syn = h_syn / np.sum(h_syn)  # norm h_syn
             h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
             h_obs_e = np.where(self.h_obs < 1.0, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
+            # lnlike_cmd = np.sum(
+            #     (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
+            # )
             lnlike_cmd = np.sum(
-                (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
+                (self.h_obs * np.log(h_syn))
             )
 
             # KLD for dCMD
@@ -1178,8 +1195,11 @@ class KLDplusDCMD(LikelihoodFunc):
             dh_syn = dh_syn / np.sum(dh_syn)
             dh_syn = np.where(dh_syn < depsilon, depsilon, dh_syn)
             dh_obs_e = np.where(self.dh_obs < 1.0, 1e-2, self.dh_obs)
+            # lnlike_dcmd = np.sum(
+            #     (self.dh_obs * np.log(dh_syn)) - (self.dh_obs * np.log(dh_obs_e))
+            # )
             lnlike_dcmd = np.sum(
-                (self.dh_obs * np.log(dh_syn)) - (self.dh_obs * np.log(dh_obs_e))
+                (self.dh_obs * np.log(dh_syn))
             )
 
             lnlike = lnlike_cmd + lnlike_dcmd
