@@ -1,5 +1,8 @@
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
+from robustgp import ITGP
 
 from . import config
 
@@ -31,6 +34,23 @@ class CMD(object):
         m = sample[source['mag'][0]].to_numpy()
         c = (sample[source['color'][0][0]] - sample[source['color'][0][1]]).to_numpy()
         return c, m
+
+    @staticmethod
+    def find_rigdeline(color, mag):
+        print('start robustgp to find rigde line...')
+        st = time.time()
+        res = ITGP(mag, color,
+                   alpha1=0.5, alpha2=0.975, nsh=2, ncc=2, nrw=1,
+                   optimize_kwargs=dict(optimizer='lbfgsb')
+                   )
+        gp, consistency = res.gp, res.consistency
+
+        RL_m = np.linspace(np.min(mag), np.max(mag), num=200)
+        RL_c, _ = gp.predict(RL_m.reshape(-1, 1))
+        RL_c = RL_c.ravel()
+        ed = time.time()
+        print(f'finish robustgp in {ed - st:.2f}s')
+        return RL_c, RL_m
 
     @staticmethod
     def extract_error(sample, model, photsys, synthetic):
