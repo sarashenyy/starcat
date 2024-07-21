@@ -942,9 +942,12 @@ class KLD(LikelihoodFunc):
             number of CMDs
         kwargs :
             'sample_obs'
+            'bin_edges' : []
         """
         if bins is None:
             bins = [0.2, 0.5]
+
+        bin_edges = kwargs.get('bin_edges')
 
         self.func = 'KLDivergence'
         self.model = model
@@ -956,11 +959,16 @@ class KLD(LikelihoodFunc):
 
         self.bin_method = bin_method
         if self.bin_method == 'fixed':
-            self.bins = bins
-            c_bw, m_bw = self.bins
-            c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
-            m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw, step=m_bw)
-            self.bin_edges = [c_bins, m_bins]
+            if bin_edges is None:
+                self.bins = bins
+                c_bw, m_bw = self.bins
+                c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw,
+                                   step=c_bw)
+                m_bins = np.arange(start=np.min(self.m_obs) - 0.5 * m_bw, stop=np.max(self.m_obs) + 0.5 * m_bw,
+                                   step=m_bw)
+                self.bin_edges = [c_bins, m_bins]
+            else:
+                self.bin_edges = bin_edges
 
         elif self.bin_method == 'knuth':
             c_bw, c_bins = knuth_bin_width(self.c_obs, return_bins=True, quiet=True)
@@ -1011,6 +1019,8 @@ class KLD(LikelihoodFunc):
 
         if h_syn is None or np.sum(h_syn) <= (np.sum(self.h_obs) * 5):
             return -np.inf
+        # if h_syn is None:
+        #     return -np.inf
 
         else:
             # version1
@@ -1039,6 +1049,26 @@ class KLD(LikelihoodFunc):
     def get_funcname(self):
         funcname = self.func
         return funcname
+
+    def getinfo_bin(self):
+        bin_method = self.bin_method
+        bin_edges = self.bin_edges
+        print(f'binning method: {bin_method}')
+        print(f'binning size: {len(bin_edges[0]) - 1} x {len(bin_edges[1]) - 1} (color x mag)')
+        print(f'edges for color: {bin_edges[0]}')
+        print(f'edges for mag: {bin_edges[1]}')
+        if self.bins is not None:
+            bins = self.bins
+            print(f'binning width: {bins[0]} x {bins[1]} (color x mag)')
+            return bin_method, bin_edges, bins
+        else:
+            return bin_method, bin_edges
+
+    def getinfo_obs(self):
+        c_obs = self.c_obs
+        m_obs = self.m_obs
+        h_obs = self.h_obs
+        return c_obs, m_obs, h_obs
 
 
 class KLDplusDCMD(LikelihoodFunc):
@@ -1158,10 +1188,11 @@ class KLDplusDCMD(LikelihoodFunc):
 
         """
         c_syn, m_syn = CMD.extract_cmd(sample_syn, self.model, self.photsys, True)
-        obs_range = ((m_syn >= np.min(self.m_obs)) and (m_syn <= np.max(self.m_obs)) and
-                     (c_syn >= np.min(self.c_obs)) and (c_syn <= np.max(self.c_obs)))
-        m_syn = m_syn[obs_range]
-        c_syn = c_syn[obs_range]
+        # waiting for debug
+        # obs_range = ((m_syn >= np.min(self.m_obs)) and (m_syn <= np.max(self.m_obs)) and
+        #              (c_syn >= np.min(self.c_obs)) and (c_syn <= np.max(self.c_obs)))
+        # m_syn = m_syn[obs_range]
+        # c_syn = c_syn[obs_range]
 
         # CMD syn
         h_syn = None
@@ -1342,8 +1373,8 @@ def kl_div(p, q):
 
 
 # @log_time
-def lnlike(theta_args,
-           step,
+# noinspection t
+def lnlike(step,
            isoc,
            likelihoodfunc,
            synstars,
@@ -1356,13 +1387,13 @@ def lnlike(theta_args,
 
     Parameters
     ----------
-    theta_args
+    # theta_args
     step
     isoc
     likelihoodfunc
     synstars
     n_stars
-    sample_obs
+    # sample_obs
     position
     times
     kwargs : 'logage', 'mh', 'dm', 'Av', 'fb', 'alpha'
@@ -1373,39 +1404,49 @@ def lnlike(theta_args,
 
     """
     warnings.filterwarnings("ignore", category=RuntimeWarning)
+    logage = kwargs.get('logage')
+    mh = kwargs.get('mh')
+    dm = kwargs.get('dm')
+    Av = kwargs.get('Av')
+    fb = kwargs.get('fb')
+    alpha = kwargs.get('alpha')
     logage_step, mh_step = step
-    if len(theta_args) == 2:  # (fb, Av)
-        logage = kwargs.get('logage')
-        mh = kwargs.get('mh')
-        dm = kwargs.get('dm')
-        Av = kwargs.get('Av')
-        fb, alpha = theta_args
+    logage = round_to_step(logage, logage_step)
+    mh = round_to_step(mh, mh_step)
+    theta = logage, mh, dm, Av, fb, alpha
 
-        logage = round_to_step(logage, logage_step)
-        mh = round_to_step(mh, mh_step)
-        theta = logage, mh, dm, Av, fb, alpha
-
-    elif len(theta_args) == 3:  # (logage, DM, Av)
-        mh = kwargs.get('mh')
-        fb = kwargs.get('fb')
-        alpha = kwargs.get('alpha')
-        logage, dm, Av = theta_args
-
-        logage = round_to_step(logage, logage_step)
-        mh = round_to_step(mh, mh_step)
-        theta = logage, mh, dm, Av, fb, alpha
-
-    elif len(theta_args) == 6:
-        logage, mh, dm, Av, fb, alpha = theta_args
-        logage = round_to_step(logage, logage_step)
-        mh = round_to_step(mh, mh_step)
-        theta = logage, mh, dm, Av, fb, alpha
-
-    elif len(theta_args) == 7:
-        logage, mh, dm, Av, fb, alpha, err = theta_args
-        logage = round_to_step(logage, logage_step)
-        mh = round_to_step(mh, mh_step)
-        theta = logage, mh, dm, Av, fb, alpha, err
+    # if len(theta_args) == 2:  # (fb, Av)
+    #     logage = kwargs.get('logage')
+    #     mh = kwargs.get('mh')
+    #     dm = kwargs.get('dm')
+    #     Av = kwargs.get('Av')
+    #     fb, alpha = theta_args
+    #
+    #     logage = round_to_step(logage, logage_step)
+    #     mh = round_to_step(mh, mh_step)
+    #     theta = logage, mh, dm, Av, fb, alpha
+    #
+    # elif len(theta_args) == 3:  # (logage, DM, Av)
+    #     mh = kwargs.get('mh')
+    #     fb = kwargs.get('fb')
+    #     alpha = kwargs.get('alpha')
+    #     logage, dm, Av = theta_args
+    #
+    #     logage = round_to_step(logage, logage_step)
+    #     mh = round_to_step(mh, mh_step)
+    #     theta = logage, mh, dm, Av, fb, alpha
+    #
+    # elif len(theta_args) == 6:
+    #     logage, mh, dm, Av, fb, alpha = theta_args
+    #     logage = round_to_step(logage, logage_step)
+    #     mh = round_to_step(mh, mh_step)
+    #     theta = logage, mh, dm, Av, fb, alpha
+    #
+    # elif len(theta_args) == 7:
+    #     logage, mh, dm, Av, fb, alpha, err = theta_args
+    #     logage = round_to_step(logage, logage_step)
+    #     mh = round_to_step(mh, mh_step)
+    #     theta = logage, mh, dm, Av, fb, alpha, err
 
     # !NOTE: theta range, dm(LMC,SMC~18.5, M31~24.5)
     # !      Av(for M31) range [0, 3] Fouesneau2014(https://iopscience.iop.org/article/10.1088/0004-637X/786/2/117)
@@ -1427,7 +1468,7 @@ def lnlike(theta_args,
         # LMC:18.5
         condition_dm = (dm < 15.) or (dm > 22.)
 
-    condition = ((logage > 10.0) or (logage < 6.7) or (mh < -2.) or (mh > 0.4) or
+    condition = ((logage > 10.1) or (logage < 6.7) or (mh < -2.) or (mh > 0.45) or
                  condition_dm or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
                  condition_alpha)
     if condition:
