@@ -360,7 +360,7 @@ def define_secmass_simple(isoc, model, photsyn):
     mini = source['mini']
     # mag = source['mag']  # list
     bands = source['bands']
-    band_max = [x + 0.5 for x in source['band_max']]  # list
+    band_max = [x + 0.5 for x in source['band_max']]  # list 也许以后会是个坑
     masssec_max = max(isoc[mini])
     # if len(mag) == 1:
     #     try:

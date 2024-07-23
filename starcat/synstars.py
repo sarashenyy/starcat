@@ -37,14 +37,17 @@ class SynStars(object):
         source = config.config[self.model][self.photsys]
         self.bands = source['bands']
         self.band_max_obs = source['band_max']
-        self.band_max_syn = [x + 0.5 for x in source['band_max']]
+        # self.band_max_syn = [x + 0.5 for x in source['band_max']]
         self.mini = source['mini']
         self.ext_coefs = source['extinction_coefs']
         self.mag = source['mag']
         self.color = source['color']
 
+        o_source = config.config['observation'][photsys]
+        self.o_bands = o_source['bands']
+
     # @log_time
-    def __call__(self, theta, n_stars, variable_type_isoc, test=False, figure=False, **kwargs):
+    def __call__(self, theta, n_stars, variable_type_isoc, mag_limit=None, test=False, figure=False, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -66,7 +69,14 @@ class SynStars(object):
         *kwargs :
             logage_step
             mh_step
+            sample_obs
         """
+        if mag_limit is not None:
+            band_max_obs = mag_limit
+        else:
+            band_max_obs = self.band_max_obs
+        band_max_syn = [x + 0.5 for x in band_max_obs]
+
         if len(theta) == 6:
             logage, mh, dm, Av, fb, alpha = theta
         elif len(theta) == 7:
@@ -113,7 +123,7 @@ class SynStars(object):
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha)
+            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
             # !step 4: add photometry error for synthetic sample
             if len(theta) == 6:
@@ -138,15 +148,15 @@ class SynStars(object):
 
             if self.photsys == 'gaiaDR3' or len(self.bands) == 2:  # or len(self.bands) == 2
                 # condition为只要有一个波段暗于极限星等，就把它丢弃
-                condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
-                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                condition = sample_syn[self.bands[0]] >= band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], band_max_obs[1:]):
                     cond = sample_syn[b] >= b_max
                     condition = condition | cond
 
             else:  # self.photsys == 'CSST'
                 # condition为所有波段都暗于极限星等的星，将之丢弃
-                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
-                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                condition = sample_syn[self.bands[0]] > band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], band_max_obs[1:]):
                     cond = sample_syn[b] > b_max
                     condition = condition & cond
 
@@ -206,7 +216,7 @@ class SynStars(object):
                     _m = isoc_new[self.bands[i + 1]]
                     x = samples[self.bands[i]] - samples[self.bands[i + 1]]
                     y = samples[self.bands[i + 1]]
-                    _uns = y > self.band_max_obs[i + 1]
+                    _uns = y > band_max_obs[i + 1]
                     ax.plot(_c, _m, '-', c='k', linewidth=0.5)
                     # stars that can be seen
                     ax.scatter(x[_bin & ~_uns], y[_bin & ~_uns], label='binary', s=3)
@@ -269,7 +279,7 @@ class SynStars(object):
         else:
             return samples
 
-    def delta_color_samples(self, theta, n_stars, variable_type_isoc, **kwargs):
+    def delta_color_samples(self, theta, n_stars, variable_type_isoc, mag_limit=None, **kwargs):
         """
         Make synthetic cluster sample, considering binary method and photmetry error.
         Need to instantiate Isoc()(optional), sunclass of BinMethod and subclass of Photerr first.
@@ -292,6 +302,12 @@ class SynStars(object):
             logage_step
             mh_step
         """
+        if mag_limit is not None:
+            band_max_obs = mag_limit
+        else:
+            band_max_obs = self.band_max_obs
+        band_max_syn = [x + 0.5 for x in band_max_obs]
+
         logage, mh, dm, Av, fb, alpha = theta
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
@@ -329,7 +345,7 @@ class SynStars(object):
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha)
+            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
             # !step 4: add photometry error for synthetic sample
             sample_syn = self.photerr.add_syn_photerr(sample_syn)
@@ -351,15 +367,15 @@ class SynStars(object):
 
             if self.photsys == 'gaiaDR3' or len(self.bands) == 2:  # or len(self.bands) == 2
                 # condition为只要有一个波段暗于极限星等，就把它丢弃
-                condition = sample_syn[self.bands[0]] >= self.band_max_obs[0]
-                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                condition = sample_syn[self.bands[0]] >= band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], band_max_obs[1:]):
                     cond = sample_syn[b] >= b_max
                     condition = condition | cond
 
             else:  # self.photsys == 'CSST'
                 # condition为所有波段都暗于极限星等的星，将之丢弃
-                condition = sample_syn[self.bands[0]] > self.band_max_obs[0]
-                for b, b_max in zip(self.bands[1:], self.band_max_obs[1:]):
+                condition = sample_syn[self.bands[0]] > band_max_obs[0]
+                for b, b_max in zip(self.bands[1:], band_max_obs[1:]):
                     cond = sample_syn[b] > b_max
                     condition = condition & cond
 
@@ -412,13 +428,15 @@ class SynStars(object):
 
         return samples
 
-    def define_mass(self, isoc):
+    def define_mass(self, isoc, mag_limit_syn=None):
         """
 
         Parameters
         ----------
         isoc : pd.DataFrame
             observed isochrone
+        mag_limit : list
+            band_max_syn
         dm : float
 
         """
@@ -441,11 +459,14 @@ class SynStars(object):
         #         )
         #         if aux_min < mass_min:
         #             mass_min = aux_min
+        if mag_limit_syn is None:
+            mag_limit_syn = [x + 0.5 for x in self.band_max_obs]  # self.band_max_syn
 
         aux_list = []
         for i in range(len(self.bands)):
             # synthetic Mini range is slightly larger than the observed for the consideration of binary and photerror
-            condition = isoc[self.bands[i]] <= self.band_max_syn[i]
+            # condition = isoc[self.bands[i]] <= self.band_max_syn[i]
+            condition = isoc[self.bands[i]] <= mag_limit_syn[i]
             filtered_isoc = isoc[condition]
 
             if not filtered_isoc.empty:
@@ -456,7 +477,7 @@ class SynStars(object):
 
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, n_stars, fb, alpha=None):
+    def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None):
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -473,8 +494,12 @@ class SynStars(object):
         pd.DataFrame :
             sample_syn ==> [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
         """
+        # define mag limit when not specified
+        if mag_limit_syn is None:
+            mag_limit_syn = [x + 0.5 for x in self.band_max_obs]
+
         # define mass range
-        mass_min, mass_max = self.define_mass(isoc=isoc)
+        mass_min, mass_max = self.define_mass(isoc=isoc, mag_limit_syn=mag_limit_syn)
         # create synthetic sample of length n_stars
         sample_syn = pd.DataFrame(np.zeros((n_stars, 1)), columns=['mass_pri'])
         sample_syn['mass_pri'] = self.imf.sample(n_stars=n_stars, mass_min=mass_min,

@@ -12,6 +12,7 @@ raku = '/data/share/syy/starcat/' # raku
 dandelion = '/data/syy/starcat/' # dandelion
 local = '/Users/sara/PycharmProjects/starcat/data/' # local
 nova = '/home/zhaox/mydata/syy/starcat/' # nova
+temp = '/home/shenyueyue/starcat/data/'
 
 # observation data details
 [observation.gaiaDR3]
@@ -47,7 +48,9 @@ bands_isoc = ['Gmag', 'G_BPmag', 'G_RPmag']
 mini = 'Mini'
 # ! column name in the total synthetic procedure (begin with Isoc.get_isoc)
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
-band_max = [18.0, 20.1, 16.7] #melotte_22_above18
+# synthetic band max, can be set manually if you do not want to use magnitude limit from the observe data,
+# or the observe data is not given
+band_max = [18.0, 20.1, 16.7]
 # band_max = [18.0, 19.5, 18.2]
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
 # These values are for a G2V star, using Cardelli et al. (1989) + O'Donnell (1994) extinction curve with Rv=3.1.

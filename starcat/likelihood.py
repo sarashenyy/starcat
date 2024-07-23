@@ -1382,6 +1382,7 @@ def lnlike(step,
            # sample_obs,
            position,
            times=1,
+           mag_limit=None,
            **kwargs):
     """
 
@@ -1481,7 +1482,7 @@ def lnlike(step,
             #                                               mh_step=mh_step)
             # else:
             #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
-            sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+            sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit, logage_step=logage_step, mh_step=mh_step)
 
             if sample_syn is False:
                 # return 1e10
@@ -1501,7 +1502,8 @@ def lnlike(step,
                 #                                               mh_step=mh_step)
                 # else:
                 #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
-                sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
+                sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
+                                      logage_step=logage_step, mh_step=mh_step)
 
                 # if sample_syn is False:
                 #     lnlike_one = 1e10
