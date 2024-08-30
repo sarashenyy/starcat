@@ -128,6 +128,10 @@ class SynStars(object):
                 beta = kwargs.get('beta')
                 sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
                                                beta=beta)
+            elif self.binmethod.method == 'BinMRD':
+                gamma = kwargs.get('gamma')
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
+                                               gamma=gamma)
             else:
                 sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
@@ -355,6 +359,10 @@ class SynStars(object):
                 beta = kwargs.get('beta')
                 sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
                                                beta=beta)
+            elif self.binmethod.method == 'BinMRD':
+                gamma = kwargs.get('gamma')
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
+                                               gamma=gamma)
             else:
                 sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
@@ -488,7 +496,8 @@ class SynStars(object):
 
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None, beta=None):
+    def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None,
+                     beta=None, gamma=None):
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -518,7 +527,7 @@ class SynStars(object):
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
             fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys,
-            beta=beta
+            beta=beta, gamma=gamma
         )
         return sample_syn
 

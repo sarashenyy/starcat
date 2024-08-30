@@ -1412,6 +1412,7 @@ def lnlike(step,
     fb = kwargs.get('fb')
     alpha = kwargs.get('alpha')
     beta = kwargs.get('beta')
+    gamma = kwargs.get('gamma')
     logage_step, mh_step = step
     logage = round_to_step(logage, logage_step)
     mh = round_to_step(mh, mh_step)
@@ -1485,7 +1486,7 @@ def lnlike(step,
             #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                   logage_step=logage_step, mh_step=mh_step,
-                                  beta=beta)
+                                  beta=beta, gamma=gamma)
 
             if sample_syn is False:
                 # return 1e10
@@ -1507,7 +1508,7 @@ def lnlike(step,
                 #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
                 sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                       logage_step=logage_step, mh_step=mh_step,
-                                      beta=beta)
+                                      beta=beta, gamma=gamma)
 
                 # if sample_syn is False:
                 #     lnlike_one = 1e10

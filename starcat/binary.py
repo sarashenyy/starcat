@@ -122,7 +122,8 @@ class BinMRD(BinMethod):
 
     # @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
-        sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample)
+        gamma = kwargs.get('gamma')
+        sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample, gamma=gamma)
         sample = add_companion_mag(
             sample=sample, isoc=isoc,
             model=model, photsyn=photsyn
@@ -226,7 +227,7 @@ def sample_q_cusp(qmin, qmax=None, beta=2, q_threshold=0.9):
     return q
 
 
-def add_secmass_MRD(fb, n_stars, sample):
+def add_secmass_MRD(fb, n_stars, sample, gamma=None):
     """
     Parameters
     ----------
@@ -234,7 +235,8 @@ def add_secmass_MRD(fb, n_stars, sample):
     n_stars
     sample : pd.DataFrame
         [mass_pri]
-
+    gamma : float
+        PDF(q) = q^gamma
     Returns
     -------
     pd.DataFrames : [mass_pri, mass_sec, q]
@@ -249,7 +251,10 @@ def add_secmass_MRD(fb, n_stars, sample):
     secindex = np.random.choice(sample.index, n_binary, replace=False)  # maybe faster -43.37ms
     mass_pri = sample.loc[secindex, 'mass_pri'].to_numpy()
     qmin = 0.09 / mass_pri
-    qs = sample_q_gamma(qmin=qmin)
+    if gamma is None:  # gamma = 0, default!
+        qs = sample_q_gamma(qmin=qmin)
+    else:  # gamma as free parameter
+        qs = sample_q_gamma(qmin=qmin, gamma=gamma)
     sample.loc[secindex, 'mass_sec'] = qs * mass_pri
     sample.loc[secindex, 'q'] = qs
     return sample
