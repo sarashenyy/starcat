@@ -70,6 +70,7 @@ class SynStars(object):
             logage_step
             mh_step
             sample_obs
+            beta
         """
         if mag_limit is not None:
             band_max_obs = mag_limit
@@ -123,7 +124,12 @@ class SynStars(object):
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
+            if self.binmethod.method == 'BinCusp':
+                beta = kwargs.get('beta')
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
+                                               beta=beta)
+            else:
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
             # !step 4: add photometry error for synthetic sample
             if len(theta) == 6:
@@ -345,7 +351,12 @@ class SynStars(object):
         while accepted < n_stars:
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
-            sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
+            if self.binmethod.method == 'BinCusp':
+                beta = kwargs.get('beta')
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
+                                               beta=beta)
+            else:
+                sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn)
 
             # !step 4: add photometry error for synthetic sample
             sample_syn = self.photerr.add_syn_photerr(sample_syn)
@@ -477,7 +488,7 @@ class SynStars(object):
 
         return mass_min, mass_max
 
-    def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None):
+    def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None, beta=None):
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -506,7 +517,8 @@ class SynStars(object):
                                                  mass_max=mass_max, alpha=alpha)
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
-            fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys
+            fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys,
+            beta=beta
         )
         return sample_syn
 

@@ -206,7 +206,10 @@ class Individual(Photerr):
             # test for spread uncertainty
             if self.add_error == 'absolute error':
                 absolute_err = kwargs.get('absolute_error')
-                mag_err = np.sqrt(np.square(mag_err) + np.square(absolute_err))
+                if self.bands[j] == 'G':
+                    mag_err = np.sqrt(np.square(mag_err) + np.square(absolute_err))
+                elif self.bands[j] == 'BP' or self.bands[j] == 'RP':
+                    mag_err = np.sqrt(np.square(mag_err) + np.square(absolute_err / np.sqrt(2)))
 
             elif self.add_error == 'relative error':
                 relative_err = 0.001  # delta as parameter

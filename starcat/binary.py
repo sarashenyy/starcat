@@ -11,7 +11,7 @@ from . import config
 
 class BinMethod(ABC):
     @abstractmethod
-    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
         Secondary stars are all Main Sequence stars.
@@ -43,7 +43,7 @@ class BinMS(BinMethod):
         self.method = 'MainSequenceBinary'
 
     # @log_time
-    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
         Secondary stars are all Main Sequence stars.
@@ -81,7 +81,7 @@ class BinSimple(BinMethod):
         self.method = 'SimpleBinary'
 
     # @log_time
-    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
         """
         Add binaries to sample. [mass_pri] ==> [ mass x [_pri, _sec], bands x [_pri, _sec], bands ]
         Secondary stars have the same mass range with sample.
@@ -121,7 +121,7 @@ class BinMRD(BinMethod):
         self.method = 'BinaryMRD'
 
     # @log_time
-    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args):
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
         sample = add_secmass_MRD(fb=fb, n_stars=n_stars, sample=sample)
         sample = add_companion_mag(
             sample=sample, isoc=isoc,
@@ -130,11 +130,34 @@ class BinMRD(BinMethod):
         return sample
 
 
-def sample_q(qmin, qmax=None, gamma=0):
+class BinCusp(BinMethod):
+    """
+    mass ratio distribution is uniform + cusp
+    PDF:
+    f(q) = C1,  0 <= q < 0.9
+    f(q) = C2 = beta * C1,  0.9 <= q <= 1
+    C1 and C2 are constants, with C2 = beta * C1.
+    """
+
+    def __init__(self):
+        self.method = 'BinaryCusp'
+
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
+        beta = kwargs.get('beta')
+        sample = add_secmass_cusp(fb=fb, n_stars=n_stars, sample=sample, beta=beta)
+        sample = add_companion_mag(
+            sample=sample, isoc=isoc,
+            model=model, photsyn=photsyn
+        )
+        return sample
+
+
+def sample_q_gamma(qmin, qmax=None, gamma=0):
     """
     PDF: f(q) = q^gamma, a<q<b (a=0.09/mass_pri)
     CDF: $F(q) = \int_a^q f(x) dx = \int_a^q x^\gamma dx = \frac{1}{\gamma+1} (q^{\gamma+1} - a^{\gamma+1})$
     reverse CDF: u = F(q), q = F^(-1)(u)
+    DEFAULT: uniform
 
     Parameters
     ----------
@@ -143,7 +166,7 @@ def sample_q(qmin, qmax=None, gamma=0):
     qmax : np.array
         default is 1
     gamma : float
-        default is 1
+        default is 0
     Returns
     -------
     np.array
@@ -156,6 +179,50 @@ def sample_q(qmin, qmax=None, gamma=0):
     # np.random.uniform(): [low, high)
     u = np.random.uniform(0, 1 + 1e-4, num)
     q = (u * cdf_factor + qmin ** (gamma + 1)) ** (1 / (gamma + 1))
+    return q
+
+
+def sample_q_cusp(qmin, qmax=None, beta=2, q_threshold=0.9):
+    """
+    PDF:
+    f(q) = C1,  0 <= q < 0.9
+    f(q) = C2 = beta * C1,  0.9 <= q <= 1
+    C1 and C2 are constants, with C2 = beta * C1.
+    DEFAULT: uniform + cusp
+
+    Parameters
+    ----------
+    beta : float
+        The ratio of the densities C2/C1
+    Returns
+    -------
+    np.array
+        Array of sampled q values
+    """
+    num = len(qmin)
+    if qmax is None:
+        qmax = np.ones(num)
+
+    # Determine the area under each section of the PDF
+    area_low = q_threshold * 1  # Since C1 is a constant, area_low = C1 * (0.9 - 0) = 0.9 * C1
+    area_high = 0.1 * beta  # Since C2 = beta * C1, area_high = C2 * (1 - 0.9) = 0.1 * beta * C1
+    total_area = area_low + area_high
+
+    # Normalize the areas to probabilities
+    prob_low = area_low / total_area
+    prob_high = area_high / total_area
+    # Generate uniform random numbers to decide which region to sample from
+    q_split = np.random.uniform(0, 1, num)
+    # Initialize arrays
+    q = np.zeros(num)
+    # Sampling for the low region [0, 0.9)
+    low_mask = q_split < prob_low
+    num_low = np.sum(low_mask)
+    q[low_mask] = np.random.uniform(0, q_threshold, num_low)
+    # Sampling for the high region [0.9, 1]
+    high_mask = ~low_mask
+    num_high = np.sum(high_mask)
+    q[high_mask] = np.random.uniform(q_threshold, 1, num_high)
     return q
 
 
@@ -182,7 +249,38 @@ def add_secmass_MRD(fb, n_stars, sample):
     secindex = np.random.choice(sample.index, n_binary, replace=False)  # maybe faster -43.37ms
     mass_pri = sample.loc[secindex, 'mass_pri'].to_numpy()
     qmin = 0.09 / mass_pri
-    qs = sample_q(qmin=qmin)
+    qs = sample_q_gamma(qmin=qmin)
+    sample.loc[secindex, 'mass_sec'] = qs * mass_pri
+    sample.loc[secindex, 'q'] = qs
+    return sample
+
+
+def add_secmass_cusp(fb, n_stars, sample, beta=None):
+    """
+
+    Parameters
+    ----------
+    fb
+    n_stars
+    sample : pd.DataFrame
+        [mass_pri]
+    beta :   float
+        f(q) = C1,  0 <= q < 0.9; f(q) = C2 = beta * C1,  0.9 <= q <= 1
+
+    Returns
+    -------
+    pd.DataFrames : [mass_pri, mass_sec, q]
+    """
+    n_binary = int(n_stars * fb)
+
+    # secindex = random.sample(list(sample.index), n_binary)
+    secindex = np.random.choice(sample.index, n_binary, replace=False)  # maybe faster -43.37ms
+    mass_pri = sample.loc[secindex, 'mass_pri'].to_numpy()
+    qmin = 0.09 / mass_pri
+    if beta is None:  # beta = 2, default!
+        qs = sample_q_cusp(qmin=qmin)
+    else:  # beta as free parameter
+        qs = sample_q_cusp(qmin=qmin, beta=beta)
     sample.loc[secindex, 'mass_sec'] = qs * mass_pri
     sample.loc[secindex, 'q'] = qs
     return sample
