@@ -118,7 +118,7 @@ class BinMRD(BinMethod):
     """
 
     def __init__(self):
-        self.method = 'BinaryMRD'
+        self.method = 'BinMRD'
 
     # @log_time
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
@@ -140,7 +140,7 @@ class BinCusp(BinMethod):
     """
 
     def __init__(self):
-        self.method = 'BinaryCusp'
+        self.method = 'BinCusp'
 
     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
         beta = kwargs.get('beta')
