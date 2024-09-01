@@ -153,7 +153,7 @@ class BinCusp(BinMethod):
         return sample
 
 
-def sample_q_gamma(qmin, qmax=None, gamma=0):
+def sample_q_gamma(qmin, gamma=0):
     """
     PDF: f(q) = q^gamma, a<q<b (a=0.09/mass_pri)
     CDF: $F(q) = \int_a^q f(x) dx = \int_a^q x^\gamma dx = \frac{1}{\gamma+1} (q^{\gamma+1} - a^{\gamma+1})$
@@ -173,13 +173,16 @@ def sample_q_gamma(qmin, qmax=None, gamma=0):
     np.array
     """
     num = len(qmin)
-    if qmax is None:
-        qmax = np.ones(num)
-    cdf_factor = ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) / (gamma + 1))
-    # u = np.random.random()
-    # np.random.uniform(): [low, high)
-    u = np.random.uniform(0, 1 + 1e-4, num)
-    q = (u * cdf_factor + qmin ** (gamma + 1)) ** (1 / (gamma + 1))
+    qmax = np.ones(num)
+
+    if gamma != -1:
+        # When gamma is not -1, use the inverse CDF method
+        r = np.random.uniform(0, 1 + 1e-4, num)
+        q = ((qmax ** (gamma + 1) - qmin ** (gamma + 1)) * r + qmin ** (gamma + 1)) ** (1 / (gamma + 1))
+    else:
+        # When gamma is -1, use the specific form for this case
+        r = np.random.uniform(0, 1 + 1e-4, num)
+        q = qmin * (qmax / qmin) ** r
     return q
 
 
