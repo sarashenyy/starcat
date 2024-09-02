@@ -153,6 +153,23 @@ class BinCusp(BinMethod):
         return sample
 
 
+# class BinCuspGamma(BinMethod):
+#     """
+#     mass ratio distribution is q^gamma + cusp(q=(0.95,1] uniform)
+#     parameters : fb, ftwin(q=(0.95,1]), gamma
+#     """
+#     def __init__(self):
+#         self.method = 'BinCuspGamma'
+#
+#     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
+#         gamma = kwargs.get('gamma')
+#         ftwin = kwargs.get('ftwin')
+#
+#         return sample
+
+
+
+
 def sample_q_gamma(qmin, gamma=0):
     """
     PDF: f(q) = q^gamma, a<q<b (a=0.09/mass_pri)
@@ -186,7 +203,7 @@ def sample_q_gamma(qmin, gamma=0):
     return q
 
 
-def sample_q_cusp(qmin, qmax=None, beta=2, q_threshold=0.9):
+def sample_q_cusp(qmin, beta=2, q_threshold=0.95):
     """
     PDF:
     f(q) = C1,  0 <= q < 0.9
@@ -204,12 +221,11 @@ def sample_q_cusp(qmin, qmax=None, beta=2, q_threshold=0.9):
         Array of sampled q values
     """
     num = len(qmin)
-    if qmax is None:
-        qmax = np.ones(num)
+    qmax = np.ones(num)
 
     # Determine the area under each section of the PDF
-    area_low = q_threshold * 1  # Since C1 is a constant, area_low = C1 * (0.9 - 0) = 0.9 * C1
-    area_high = 0.1 * beta  # Since C2 = beta * C1, area_high = C2 * (1 - 0.9) = 0.1 * beta * C1
+    area_low = q_threshold * 1  # Since C1 is a constant, area_low = C1 * (0.95 - 0) = 0.95 * C1
+    area_high = 0.1 * beta  # Since C2 = beta * C1, area_high = C2 * (1 - 0.95) = 0.1 * beta * C1
     total_area = area_low + area_high
 
     # Normalize the areas to probabilities
@@ -228,6 +244,9 @@ def sample_q_cusp(qmin, qmax=None, beta=2, q_threshold=0.9):
     num_high = np.sum(high_mask)
     q[high_mask] = np.random.uniform(q_threshold, 1, num_high)
     return q
+
+
+# def sample_q_cusp_gamma(qmin, qmax=None, beta=2, gamma=0, q_threshold=0.9):
 
 
 def add_secmass_MRD(fb, n_stars, sample, gamma=None):
