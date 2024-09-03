@@ -153,24 +153,28 @@ class BinCusp(BinMethod):
         return sample
 
 
-# class BinCuspGamma(BinMethod):
-#     """
-#     mass ratio distribution is q^gamma + cusp(q=(0.95,1] uniform)
-#     parameters : fb, ftwin(q=(0.95,1]), gamma
-#     """
-#     def __init__(self):
-#         self.method = 'BinCuspGamma'
-#
-#     def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
-#         gamma = kwargs.get('gamma')
-#         ftwin = kwargs.get('ftwin')
-#
-#         return sample
+class BinCuspGamma(BinMethod):
+    """
+    mass ratio distribution is q^gamma + cusp(q=(0.95,1] uniform)
+    parameters : fb, ftwin(q=(0.95,1]), gamma
+    """
+
+    def __init__(self):
+        self.method = 'BinCuspGamma'
+
+    def add_binary(self, fb, n_stars, sample, isoc, imf, model, photsyn, *args, **kwargs):
+        gamma = kwargs.get('gamma')
+        ftwin = kwargs.get('ftwin')
+        sample = add_secmass_cusp_gamma(fb=fb, n_stars=n_stars, sample=sample,
+                                        ftwin=ftwin, gamma=gamma)
+        sample = add_companion_mag(
+            sample=sample, isoc=isoc,
+            model=model, photsyn=photsyn
+        )
+        return sample
 
 
-
-
-def sample_q_gamma(qmin, gamma=0):
+def sample_q_gamma(qmin, gamma=0, q_threshold=1):
     """
     PDF: f(q) = q^gamma, a<q<b (a=0.09/mass_pri)
     CDF: $F(q) = \int_a^q f(x) dx = \int_a^q x^\gamma dx = \frac{1}{\gamma+1} (q^{\gamma+1} - a^{\gamma+1})$
@@ -190,7 +194,8 @@ def sample_q_gamma(qmin, gamma=0):
     np.array
     """
     num = len(qmin)
-    qmax = np.ones(num)
+    # qmax = np.ones(num)
+    qmax = np.full(num, q_threshold)
 
     if gamma != -1:
         # When gamma is not -1, use the inverse CDF method
@@ -244,10 +249,6 @@ def sample_q_cusp(qmin, beta=2, q_threshold=0.95):
     num_high = np.sum(high_mask)
     q[high_mask] = np.random.uniform(q_threshold, 1, num_high)
     return q
-
-
-# def sample_q_cusp_gamma(qmin, qmax=None, beta=2, gamma=0, q_threshold=0.9):
-
 
 def add_secmass_MRD(fb, n_stars, sample, gamma=None):
     """
@@ -312,6 +313,45 @@ def add_secmass_cusp(fb, n_stars, sample, beta=None):
     sample.loc[secindex, 'q'] = qs
     return sample
 
+
+def add_secmass_cusp_gamma(fb, n_stars, sample, ftwin, gamma):
+    """
+    ftwin: fraction of twin binaries, q = (q_thres, 1); uniform q
+    fb: fraction of binary stars, q < q_thres; q^gamma
+
+    Parameters
+    ----------
+    fb
+    n_stars
+    sample
+    ftwin
+    gamma
+
+    Returns
+    -------
+
+    """
+    q_thres = 0.95
+    n_binary = int(n_stars * fb)  # q = (qmin, q_threshold)
+    n_twin = int(n_stars * ftwin)  # q = (q_threshold, 1)
+    secindex = np.random.choice(sample.index, n_binary + n_twin, replace=False)
+    secindex_b = secindex[:n_binary]  # n_binary
+    secindex_t = secindex[n_binary:]  # n_twin
+
+    # binary, q = (0, 0.95) ; q^gamma distribution
+    mass_pri_b = sample.loc[secindex_b, 'mass_pri'].to_numpy()
+    qmin_b = 0.09 / mass_pri_b
+    qs_binary = sample_q_gamma(qmin=qmin_b, gamma=gamma, q_threshold=q_thres)
+    sample.loc[secindex_b, 'mass_sec'] = qs_binary * mass_pri_b
+    sample.loc[secindex_b, 'q'] = qs_binary
+
+    # twin binary, q = (0.95, 1) ; uniform distribution, gamma=0
+    mass_pri_t = sample.loc[secindex_t, 'mass_pri'].to_numpy()
+    qmin_t = np.full(n_twin, q_thres)
+    qs_twin = sample_q_gamma(qmin=qmin_t, gamma=0, q_threshold=1)
+    sample.loc[secindex_t, 'mass_sec'] = qs_twin * mass_pri_t
+    sample.loc[secindex_t, 'q'] = qs_twin
+    return sample
 
 def add_secmass_simple(fb, n_stars, sample, imf, masssec_min, masssec_max, alpha=None):
     """

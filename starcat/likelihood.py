@@ -945,7 +945,7 @@ class KLD(LikelihoodFunc):
             'bin_edges' : []
         """
         if bins is None:
-            bins = [0.2, 0.5]
+            bins = [0.2, 0.5]  # color_bw, mag_bw
 
         bin_edges = kwargs.get('bin_edges')
 
@@ -1413,6 +1413,8 @@ def lnlike(step,
     alpha = kwargs.get('alpha')
     beta = kwargs.get('beta')
     gamma = kwargs.get('gamma')
+    ftwin = kwargs.get('ftwin')
+
     logage_step, mh_step = step
     logage = round_to_step(logage, logage_step)
     mh = round_to_step(mh, mh_step)
@@ -1474,6 +1476,8 @@ def lnlike(step,
     condition = ((logage > 10.1) or (logage < 6.7) or (mh < -2.) or (mh > 0.45) or
                  condition_dm or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
                  condition_alpha)
+    if ftwin is not None:
+        condition = condition or (ftwin + fb > 1.) or (ftwin < 0.) or (ftwin > 1.)
     if condition:
         return -np.inf
 
@@ -1486,7 +1490,7 @@ def lnlike(step,
             #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                   logage_step=logage_step, mh_step=mh_step,
-                                  beta=beta, gamma=gamma)
+                                  beta=beta, gamma=gamma, ftwin=ftwin)
 
             if sample_syn is False:
                 # return 1e10
@@ -1508,7 +1512,7 @@ def lnlike(step,
                 #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
                 sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                       logage_step=logage_step, mh_step=mh_step,
-                                      beta=beta, gamma=gamma)
+                                      beta=beta, gamma=gamma, ftwin=ftwin)
 
                 # if sample_syn is False:
                 #     lnlike_one = 1e10
