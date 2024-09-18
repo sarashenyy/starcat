@@ -1473,7 +1473,7 @@ def lnlike(step,
         # LMC:18.5
         condition_dm = (dm < 15.) or (dm > 22.)
 
-    condition = ((logage > 10.1) or (logage < 6.7) or (mh < -2.) or (mh > 0.45) or
+    condition = ((logage > 10.1) or (logage < 6.6) or (mh < -2.) or (mh > 0.45) or
                  condition_dm or (Av < 0.) or (Av > 3.) or (fb < 0.) or (fb > 1.) or
                  condition_alpha)
     if ftwin is not None:
