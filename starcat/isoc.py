@@ -307,8 +307,10 @@ class Parsec(IsocModel):
         isoc_new[col_notin_bands] = abs_isoc[col_notin_bands]
 
         for _ in range(len(bands)):
+            # TODO: get extinction coeficients from Monteiro2020 for Gaia, the same as Synstars.get_observe_isoc()
             # get extinction coeficients
             l, w, c = ext_coefs[_]
+
             #    sample_syn[_] += dm
             isoc_new[bands[_]] = abs_isoc[bands[_]] + dm + c * Av
 

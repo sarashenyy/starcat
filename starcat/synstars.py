@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from astropy.modeling import models
 from matplotlib.gridspec import GridSpec
 from scipy.interpolate import interp1d
 
@@ -536,14 +537,63 @@ class SynStars(object):
         isoc_new = pd.DataFrame(columns=columns)
         col_notin_bands = list(set(columns) - set(self.bands))
         isoc_new[col_notin_bands] = isoc[col_notin_bands]
+
+        color = isoc[self.color[0][0]] - isoc[self.color[0][1]]
         for _ in range(len(self.bands)):
-            # get extinction coeficients
-            l, w, c = self.ext_coefs[_]
+            # get extinction coeficients: k
+            # source 1
+            # These values are for a G2V star, using Cardelli et al. (1989) + O'Donnell (1994) extinction curve with Rv=3.1
+            # l, w, k = self.ext_coefs[_]
+
+            # source 2
+            # Paper from Monteiro2020 (https://doi.org/10.1093/mnras/stae363)
+            k = gaia_ext_Hek(color, Av, self.bands[_])
+
             #    sample_syn[_] += dm
-            isoc_new[self.bands[_]] = isoc[self.bands[_]] + dm + c * Av
+            isoc_new[self.bands[_]] = isoc[self.bands[_]] + dm + k * Av
 
             # if np.where(isoc_new[self.bands[_]] < self.band_max_obs)[0]
         return isoc_new
+
+
+# Paper from Monteiro2020 (https://doi.org/10.1093/mnras/stae363)
+# Code from (https://github.com/hektor-monteiro/OCFit/blob/af647f167de83671bce9f3976f2179d51365235c/gaiaDR2/oc_tools_padova.py#L404)
+def gaia_ext_Hek(color, Av, band):
+    # to make Avv have the same shape with color
+    Avv = color * 0. + Av
+
+    # polynomial values for FITZPATRICK & MASSA (2019) and Maiz (2018) revised bands log g = 2,4 FeH=0
+    if band == 'BP':
+        poly = models.Polynomial2D(degree=4)
+        poly._parameters = np.array([1.05181792e+00, 2.15260274e-02, 3.88537370e-03, -1.36006358e-04,
+                                     9.63427576e-05, -9.55649608e-02, 1.56568234e-02, 4.35260406e-03,
+                                     4.69687914e-03, -1.54235517e-02, -3.03327868e-04, -7.91815822e-03,
+                                     -3.09216985e-04, 4.45665224e-03, -1.03937003e-03])
+        coeffs = dict((name, poly._parameters[i]) for i, name in enumerate(poly.param_names))
+        poly = models.Polynomial2D(degree=4, **coeffs)
+        k = poly(Avv, color)
+
+    if band == 'RP':
+        poly = models.Polynomial2D(degree=4)
+        poly._parameters = np.array([6.41192605e-01, 2.22904649e-03, -9.16711130e-04, 4.83963016e-04,
+                                     6.06464585e-05, -2.32076741e-02, -1.09121955e-02, -3.73753572e-03,
+                                     3.36453911e-03, 6.66475637e-03, 6.58291883e-03, -5.34011237e-03,
+                                     -3.30526971e-03, 3.03615356e-03, -7.19274468e-04])
+        coeffs = dict((name, poly._parameters[i]) for i, name in enumerate(poly.param_names))
+        poly = models.Polynomial2D(degree=4, **coeffs)
+        k = poly(Avv, color)
+
+    if band == 'G':
+        poly = models.Polynomial2D(degree=4)
+        poly._parameters = np.array([8.24266053e-01, 2.57624197e-02, 2.48960819e-03, 1.89082130e-05,
+                                     -4.36756284e-05, -1.25185960e-01, 1.58038432e-02, 3.95801874e-03,
+                                     -1.66274968e-03, -1.16875735e-02, -2.77314088e-04, 1.98194728e-03,
+                                     -5.69123828e-04, -1.22014451e-03, 3.98052528e-04])
+        coeffs = dict((name, poly._parameters[i]) for i, name in enumerate(poly.param_names))
+        poly = models.Polynomial2D(degree=4, **coeffs)
+        k = poly(Avv, color)
+
+    return k
 
 # def coefs_CSST(band):
 #     """
