@@ -145,7 +145,7 @@ class GaiaDR3(Photerr):
 
     def get_error(self, sample_syn):
         e = MagError(med_nobs=self.med_nobs, bands=self.bands)
-        g_med_err, bp_med_err, rp_med_err = e.estimate_med_photoerr(sample_syn)
+        g_med_err, bp_med_err, rp_med_err = e.estimat_emed_photoerr(sample_syn)
         return g_med_err, bp_med_err, rp_med_err
 
 

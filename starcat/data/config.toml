@@ -11,8 +11,11 @@ data_dir = 'local' # 'raku' 'dandelion' 'local' 'nova'
 raku = '/data/share/syy/starcat/' # raku
 dandelion = '/data/syy/starcat/' # dandelion
 local = '/Users/sara/PycharmProjects/starcat/data/' # local
-nova = '/home/zhaox/mydata/syy/starcat/' # nova
-temp = '/home/shenyueyue/starcat/data/'
+nova = '/home/zhaox/mydata/syy/starcat/'  # nova
+alpha = '/home/shenyueyue/starcat/data/'  # alpha
+phi = '/home/shenyueyue/starcat/data/'  # phi
+chi = '/home/shenyueyue/starcat/data/'  # chi
+psi = '/home/shenyueyue/starcat/data/'  # psi
 
 # observation data details
 [observation.gaiaDR3]
@@ -22,9 +25,9 @@ mag_err = ['e_Gmag']
 color_err = [['e_BPmag', 'e_RPmag']]
 bands = ['Gmag', 'BPmag', 'RPmag']
 bands_err = ['e_Gmag', 'e_BPmag', 'e_RPmag']
+prob = 'Prob'
 #bands = ['Gmag', 'BPmag', 'RPmag']
 #bands_err = ['G_err', 'BP_err', 'RP_err']
-#prob = 'Prob'
 #mag = ['Gmag']
 #color = [['BPmag', 'RPmag']]
 
@@ -50,7 +53,7 @@ mini = 'Mini'
 bands = ['G', 'BP', 'RP'] #syn_bands = ['G_syn', 'BP_syn', 'RP_syn']
 # synthetic band max, can be set manually if you do not want to use magnitude limit from the observe data,
 # or the observe data is not given
-band_max = [18.0, 20.1, 16.7]
+band_max = [19.0, 21.0, 18.0]
 # band_max = [18.0, 19.5, 18.2]
 # given by parsec cmd: λeff (Å), ωeff (Å), Aλ/AV
 # These values are for a G2V star, using Cardelli et al. (1989) + O'Donnell (1994) extinction curve with Rv=3.1.

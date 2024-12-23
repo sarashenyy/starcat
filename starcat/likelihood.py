@@ -997,7 +997,22 @@ class KLD(LikelihoodFunc):
             c_bins = np.arange(start=np.min(self.c_obs) - 0.5 * c_bw, stop=np.max(self.c_obs) + 0.5 * c_bw, step=c_bw)
             self.bin_edges = [c_bins, m_bins]
 
-        self.h_obs, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
+        # for version4: consider membership probability
+        # 找到 self.c_obs 和 self.m_obs 数据点在 self.bin_edges 中对应的区间索引 c_bin_idx, m_bin_idx
+        c_bin_idx = np.digitize(self.c_obs, self.bin_edges[0]) - 1
+        m_bin_idx = np.digitize(self.m_obs, self.bin_edges[1]) - 1
+        # valid_mask 用来过滤数据点，保留那些落在有效区间内的数据
+        # np.digitize 会返回 0 表示数据点小于所有区间的最小值，减 1 后可能变成 -1，而 -1 是无效的索引
+        # np.digitize 会返回一个超出最大区间边界的值（等于 len(bins)），减 1 后仍可能超出有效索引范围
+        valid_mask = ((c_bin_idx >= 0) & (c_bin_idx < len(self.bin_edges[0]) - 1)
+                      & (m_bin_idx >= 0) & (m_bin_idx < len(self.bin_edges[1]) - 1))
+        self.prob = CMD.get_membership_prob(self.sample_obs, self.model, self.photsys)
+        h_obs_temp, _, _ = np.histogram2d(self.c_obs, self.m_obs, bins=self.bin_edges)
+        h_obs_prob = np.zeros_like(h_obs_temp)
+        for i in range(len(self.c_obs)):
+            if valid_mask[i]:
+                h_obs_prob[c_bin_idx[i], m_bin_idx[i]] += self.prob[i]
+        self.h_obs = h_obs_prob
 
     # @log_time
     def eval_lnlike(self, sample_syn, sample_obs=None):
@@ -1036,10 +1051,25 @@ class KLD(LikelihoodFunc):
             # h_syn = h_syn / np.mean(h_syn)  # 为了使典型的log(p)=0, np.mean(h_syn) = np.sum(h_syn)/bins
             # lnlike = np.sum(h_obs * np.log(h_syn))
 
+            # version3 STABLE!! for Pang data, without membership Prob
+            # epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
+            # h_syn = h_syn / np.sum(h_syn)  # norm h_syn
+            # h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
+            # h_obs_e = np.where(self.h_obs < 1.0, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
+            # lnlike = np.sum(
+            #     (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
+            # )
+
+            # version4 consider membership probability, h_obs = h_obs_prob
             epsilon = (1 / np.sum(h_syn)) * 1e-2  # 改进epsilon的值
             h_syn = h_syn / np.sum(h_syn)  # norm h_syn
             h_syn = np.where(h_syn < epsilon, epsilon, h_syn)
-            h_obs_e = np.where(self.h_obs < 1.0, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
+            aux_positive = self.h_obs[self.h_obs > 0.]  # 大于0的最小值，具有最小数值的非零bin
+            if aux_positive.size > 0.:
+                min_positive = np.min(aux_positive)  # 非零bin的最小值
+            else:
+                min_positive = 1.0  # 此处的else 可能不太合理
+            h_obs_e = np.where(self.h_obs < min_positive, 1e-2, self.h_obs)  # 为后续np.log()计算而处理0值，不改变h_obs本身
             lnlike = np.sum(
                 (self.h_obs * np.log(h_syn)) - (self.h_obs * np.log(h_obs_e))
             )
@@ -1458,9 +1488,9 @@ def lnlike(step,
     # !                               Li Lu MIMO & PhD thesis
     # !      dm(for Gaia) range [3, 15] Li Lu MIMO & PhD thesis
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
-    if isinstance(alpha, list):
+    if isinstance(alpha, list) or isinstance(alpha, tuple):
         alpha1, alpha2 = alpha
-        condition_alpha = ((alpha1 < 0.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0))
+        condition_alpha = ((alpha1 < -5.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0))
     elif isinstance(alpha, float):
         condition_alpha = ((alpha < 0.) or (alpha > 5.0))
 

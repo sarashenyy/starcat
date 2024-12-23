@@ -29,11 +29,11 @@ class MagError(Edr3LogMagUncertainty):
 
     def __init__(
             self,
-            sample_obs,
             med_nobs,
-            spline_param,
             bands,
-            nobs):
+            nobs=None,
+            spline_param=None,
+            sample_obs=None):
         """
 
         Parameters

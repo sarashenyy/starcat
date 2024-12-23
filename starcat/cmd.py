@@ -36,6 +36,12 @@ class CMD(object):
         return c, m
 
     @staticmethod
+    def get_membership_prob(sample, model, photsys):
+        source = config.config['observation'][photsys]
+        prob = sample[source['prob']].to_numpy()
+        return prob
+
+    @staticmethod
     def find_rigdeline(color, mag):
         print('start robustgp to find rigde line...')
         st = time.time()
