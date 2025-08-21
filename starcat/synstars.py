@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ from .isoc import Isoc
 class SynStars(object):
     imf: IMF
 
-    def __init__(self, model, photsys, imf, binmethod, photerr):
+    def __init__(self, model, photsys, imf, binmethod, photerr, **kwargs):
         """
         Synthetic cluster samples.
 
@@ -27,6 +29,11 @@ class SynStars(object):
             subclass of starcat.BinMethod: BinMS(), BinSimple()
         photerr :
             subclass of starcat.Photerr: GaiaEDR3()
+
+        **kwargs :
+            completness : pd.DataFrame, cols=['Gmag_bin_left', 'Gmag_bin_right', 'comp_p']
+            contamination : pd.DataFrame, cols=['Gmag_bin_left', 'Gmag_bin_right', 'cont_p']
+            field_sample : pd.DataFrame, cols=['phot_g_mean_mag', 'phot_bp_mean_mag', 'phot_g_mean_mag']
         """
         self.imf = imf
         # self.n_stars = n_stars
@@ -46,6 +53,15 @@ class SynStars(object):
 
         o_source = config.config['observation'][photsys]
         self.o_bands = o_source['bands']
+
+        self.completeness = kwargs.get('completeness')
+        self.contamination = kwargs.get('contamination')
+        self.field_sample = kwargs.get('field_sample')
+        if self.field_sample is not None and self.completeness is not None and self.contamination is not None:
+            self.select_effect = True
+        else:
+            self.select_effect = False
+
 
     # @log_time
     def __call__(self, theta, n_stars, variable_type_isoc, mag_limit=None, test=False, figure=False, **kwargs):
@@ -284,7 +300,22 @@ class SynStars(object):
             return samples, accepted_rate, total_size, test_sample_time, isoc, isoc_new
 
         else:
-            return samples
+            if self.select_effect:
+                # 1.apply completeness
+                samples_comp = self.apply_completeness(samples)
+                # 2.apply contamination
+                samples_cont = self.apply_contamination(samples_comp)
+                # 3.combine
+                # FutureWarning:The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.
+                # In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes.
+                # To retain the old behavior, exclude the relevant entries before the concat operation.
+                # This Warning is because of samples_cont only have ['G', 'BP', 'RP'] non-NA columns
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=FutureWarning)
+                    res = pd.concat([samples_comp, samples_cont], ignore_index=True)
+                return res
+            else:
+                return samples
 
     def delta_color_samples(self, theta, n_stars, variable_type_isoc, mag_limit=None, **kwargs):
         """
@@ -554,6 +585,71 @@ class SynStars(object):
 
             # if np.where(isoc_new[self.bands[_]] < self.band_max_obs)[0]
         return isoc_new
+
+    def apply_completeness(self, synsample):
+        """
+        Drop stars from synsample based on completeness probability in each Gmag bin.
+        Also retain stars whose Gmag values fall outside all defined bins.
+        """
+        synsample_filtered = []
+        covered_mask = np.zeros(len(synsample), dtype=bool)
+
+        for _, row in self.completeness.iterrows():
+            # Get the Gmag bin edges and completeness probability
+            left, right, comp_p = row['Gmag_bin_left'], row['Gmag_bin_right'], row['comp_p']
+            # if left == 'total':
+            #     continue
+            bin_mask = (synsample['G'] > left) & (synsample['G'] <= right)
+            covered_mask |= bin_mask
+            # Randomly drop stars in this bin based on completeness probability
+            bin_data = synsample[bin_mask].copy()
+            n_keep = int(np.round(len(bin_data) * comp_p))
+            if n_keep > 0:
+                # Randomly select stars to keep
+                bin_kept = bin_data.sample(n=n_keep, random_state=42)
+                synsample_filtered.append(bin_kept)
+
+        # Concatenate the filtered stars
+        outside_data = synsample[~covered_mask].copy()
+        if synsample_filtered:
+            kept_data = pd.concat(synsample_filtered + [outside_data], ignore_index=True)
+        else:
+            kept_data = outside_data.reset_index(drop=True)
+        return kept_data
+
+    def apply_contamination(self, synsample_after_comp):
+        """
+        Generate field star contaminants based on contamination rate per Gmag bin.
+        Only returns the contaminant stars (does not include synsample).
+        NOTE THAT: N_cont = cont_p / (1- cont_p) * N_kept
+        """
+        contaminated_stars = []
+
+        for _, row in self.contamination.iterrows():
+            # Get the Gmag bin edges and contamination probability
+            left, right, cont_p = row['Gmag_bin_left'], row['Gmag_bin_right'], row['cont_p']
+            # if left == 'total':
+            #     continue
+            bin_mask_syn = (synsample_after_comp['G'] > left) & (synsample_after_comp['G'] <= right)
+            N_kept_bin = len(synsample_after_comp[bin_mask_syn])
+            N_cont = int(np.round(N_kept_bin * cont_p / (1 - cont_p)))
+            if N_cont == 0:
+                continue
+            bin_mask_field = ((self.field_sample['G'] > left)
+                              & (self.field_sample['G'] <= right))
+            field_candidates = self.field_sample[bin_mask_field]
+            if len(field_candidates) >= N_cont:
+                selected = field_candidates.sample(n=N_cont, random_state=42)
+            else:  # if not enough candidates, sample with replacement
+                selected = field_candidates.sample(n=N_cont, replace=True, random_state=42)
+            contaminated_stars.append(selected)
+
+        # Concatenate the contaminated stars
+        cont_data = pd.DataFrame(columns=synsample_after_comp.columns)
+        if contaminated_stars:
+            cont = pd.concat(contaminated_stars, ignore_index=True)
+            cont_data[['G', 'BP', 'RP']] = cont[['G', 'BP', 'RP']]
+        return cont_data
 
 
 # Paper from Monteiro2020 (https://doi.org/10.1093/mnras/stae363)
