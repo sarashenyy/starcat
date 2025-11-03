@@ -4,6 +4,8 @@ from matplotlib import pyplot as plt
 from scipy import integrate
 
 
+# Adapted from H.Monteiro, https://github.com/hektor-monteiro/OCFit/blob/master/gaiaDR2/oc_tools_padova.py
+
 class IMF(object):
     def __init__(self, type='salpeter55'):
         """
@@ -83,32 +85,98 @@ class IMF(object):
         return mass
 
     @staticmethod
-    def chabrier03(mass_int, alpha=None):
+    def chabrier03(mass_int, Mc=None, sigma=None, alpha=None, Mnorm=None):
         """
-        For mass_int <= 1.
+        NOTE1: This function is under LINEAR mass coordinate,
+              and WITHOUT normalization (which is done numerically in sample()).
+        NOTE2, relation between LOG mass and LINEAR mass:
+              Xi(m) = (1 / (m * ln(10))) * Xi(log m)
+        For mass_int <= 1: log-normal form
         Chabrier (2003) - http://adsabs.harvard.edu/abs/2003PASP..115..763C
-        For mass_int >1.
+        A = 0.158, Mc = 0.079, sigma = 0.69
+        For mass_int >1: power-law form
         A = 4.43e-2, alpha = 2.3
 
         Parameters
         ----------
-        mass_int
-        alpha :
+        mass_int : array_like
+            Mass grid (1D numpy array)
+        Mc : float
+            Characteristic mass of log-normal (default 0.079 Msun)
+        sigma : float
+            Width of log-normal (default 0.69)
+        alpha : float
+            High-mass power-law slope (default 2.3)
+        Mnorm : float
+            Mass at which to switch from log-normal to power-law (default 1.0 Msun)
 
         Returns
         -------
-
+        imf_val : np.ndarray
+            IMF values on linear mass coordinate (dN/dm)
         """
+        if Mc is None:
+            Mc = 0.079
+        if sigma is None:
+            sigma = 0.69
         if alpha is None:
             alpha = 2.3
-        id_low = np.where(mass_int <= 1.)
-        imf_val = 4.43e-2 * mass_int ** (-alpha)
-        imf_val[id_low] = 0.158 * np.exp(-0.5 *
-                                         (np.log10(mass_int[id_low]) - np.log10(0.08)) ** 2 / 0.69 ** 2)
+        if Mnorm is None:
+            Mnorm = 1.0
+        # assume mass_int is a 1D numpy array of positive floats (ascending or not doesn't matter here)
+        imf_val = np.empty_like(mass_int, dtype=float)
+        # use boolean mask (clearer than np.where tuple)
+        mask_low = (mass_int <= Mnorm)  # low: log-normal
+        mask_high = ~mask_low  # complementary: power-law
+
+        # scaling factor to ensure continuity in shape (which will be overridden after numerical normalization).
+        factor = (Mnorm ** (alpha - 1) / np.log(10)) * np.exp(
+            -0.5 * ((np.log10(Mnorm) - np.log10(Mc)) / sigma) ** 2
+        )
+
+        # M <= Mnorm: log-normal, LINEAR mass coordinate
+        imf_val[mask_low] = (1.0 / (mass_int[mask_low] * np.log(10))) * np.exp(
+            -0.5 * ((np.log10(mass_int[mask_low]) - np.log10(Mc)) / sigma) ** 2
+        )
+
+        # M > Mnorm: scaled power-law, LINEAR mass coordinate
+        imf_val[mask_high] = factor * mass_int[mask_high] ** (-alpha)
+
         return imf_val
 
+    # @staticmethod
+    # def kroupa01(mass_int, alpha1=None, alpha2=None):
+    #     """
+    #     Kroupa (2001) - https://doi.org/10.1046/j.1365-8711.2001.04022.x
+    #
+    #     Parameters
+    #     ----------
+    #     mass_int
+    #     alpha1 : float
+    #         Default is 1.3
+    #     alpha2 : float
+    #         Default is 2.3
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     if alpha1 is None:
+    #         alpha1 = 1.3
+    #     if alpha2 is None:
+    #         alpha2 = 2.3
+    #     m_break = 0.5
+    #     factor = m_break ** (alpha2 - alpha1)  # factor for scale
+    #
+    #     id_low = np.where(mass_int <= m_break)
+    #     # upper
+    #     imf_val = factor * (mass_int ** -alpha2)
+    #     # lower
+    #     imf_val[id_low] = mass_int[id_low] ** -alpha1
+    #     return imf_val
+
     @staticmethod
-    def kroupa01(mass_int, alpha1=None, alpha2=None):
+    def kroupa01(mass_int, alpha1=None, alpha2=None, m_break=None):
         """
         Kroupa (2001) - https://doi.org/10.1046/j.1365-8711.2001.04022.x
 
@@ -119,6 +187,8 @@ class IMF(object):
             Default is 1.3
         alpha2 : float
             Default is 2.3
+        m_break : float
+            Default is 0.5
 
         Returns
         -------
@@ -128,9 +198,10 @@ class IMF(object):
             alpha1 = 1.3
         if alpha2 is None:
             alpha2 = 2.3
-        m_break = 0.5
+        if m_break is None:
+            m_break = 0.5
+        imf_val = np.empty_like(mass_int, dtype=float)
         factor = m_break ** (alpha2 - alpha1)  # factor for scale
-
         id_low = np.where(mass_int <= m_break)
         # upper
         imf_val = factor * (mass_int ** -alpha2)
@@ -157,7 +228,7 @@ class IMF(object):
         imf_val = mass_int ** -alpha
         return imf_val
 
-    def sample(self, n_stars, mass_min, mass_max, alpha=None, seed=None):
+    def sample(self, n_stars, mass_min, mass_max, alpha=None, mbreak=None, seed=None, **kwargs):
         """
         Generate n stars which mass distribution obey with imf.
 
@@ -169,6 +240,12 @@ class IMF(object):
             n stars
         mass_min : float
         mass_max : float
+
+        kwargs : dict
+            Optional keyword arguments:
+            - Mc, sigma, Mnorm : for Chabrier03
+            - mbreak : for Kroupa01
+            - seed : random seed
 
         Returns
         -------
@@ -184,17 +261,22 @@ class IMF(object):
         #     mass.extend(m_x[mask])
         # return mass[:n_stars]
 
-        # spaced evenly on a log scale
-        mass_int = np.flip(np.logspace(np.log10(mass_min), np.log10(mass_max), 1000), axis=0)
+        # spaced evenly on a log scale, but still LINEAR mass coordinate
+        mass_int = np.flip(np.logspace(np.log10(mass_min), np.log10(mass_max), 2000), axis=0)
         if self.type == 'chabrier03':
-            imf_val = IMF.chabrier03(mass_int, alpha)
+            # extract optional parameters safely
+            Mc = kwargs.get('Mc')
+            sigma = kwargs.get('sigma')
+            Mnorm = kwargs.get('Mnorm')
+            imf_val = self.chabrier03(mass_int, Mc=Mc, sigma=sigma, alpha=alpha, Mnorm=Mnorm)
         elif self.type == 'kroupa01':
             alpha1, alpha2 = alpha
-            imf_val = IMF.kroupa01(mass_int, alpha1, alpha2)
+            mbreak = mbreak
+            imf_val = IMF.kroupa01(mass_int, alpha1, alpha2, mbreak)
         elif self.type == 'salpeter55':
             imf_val = IMF.salpeter55(mass_int, alpha)
 
-        # pdf
+        # pdf, integrate.trapezoid(imf_val, mass_int)
         pdf_imf = imf_val / integrate.trapezoid(imf_val, mass_int)
 
         # cdf

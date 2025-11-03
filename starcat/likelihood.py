@@ -1444,6 +1444,9 @@ def lnlike(step,
     beta = kwargs.get('beta')
     gamma = kwargs.get('gamma')
     ftwin = kwargs.get('ftwin')
+    mbreak = kwargs.get('mbreak')
+    Mc = kwargs.get('Mc')
+    sigma = kwargs.get('sigma')
 
     logage_step, mh_step = step
     logage = round_to_step(logage, logage_step)
@@ -1490,7 +1493,9 @@ def lnlike(step,
     # * Note [M/H] range in [-2, 0.7]? Dias2021 from [-0.9, 0.7]
     if isinstance(alpha, list) or isinstance(alpha, tuple):
         alpha1, alpha2 = alpha
-        condition_alpha = ((alpha1 < -5.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0))
+        # condition_alpha = ((alpha1 < -5.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0))
+        condition_alpha = ((alpha1 < -5.) or (alpha1 > 5.0) or (alpha2 < 0.) or (alpha2 > 5.0)
+                           or (alpha1 > alpha2))
     elif isinstance(alpha, float):
         condition_alpha = ((alpha < 0.) or (alpha > 5.0))
 
@@ -1508,6 +1513,12 @@ def lnlike(step,
                  condition_alpha)
     if ftwin is not None:
         condition = condition or (ftwin + fb > 1.) or (ftwin < 0.) or (ftwin > 1.)
+    if mbreak is not None:
+        condition = condition or (mbreak < 0.1) or (mbreak > 0.9)
+    if Mc is not None:
+        condition = condition or (Mc < 0.09) or (Mc > 1.)
+    if sigma is not None:
+        condition = condition or (sigma < 0.) or (sigma > 60.)
     if condition:
         return -np.inf
 
@@ -1520,7 +1531,8 @@ def lnlike(step,
             #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
             sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                   logage_step=logage_step, mh_step=mh_step,
-                                  beta=beta, gamma=gamma, ftwin=ftwin)
+                                  beta=beta, gamma=gamma, ftwin=ftwin, mbreak=mbreak,
+                                  Mc=Mc, sigma=sigma)
 
             if sample_syn is False:
                 # return 1e10
@@ -1542,7 +1554,8 @@ def lnlike(step,
                 #     sample_syn = synstars(theta, n_stars, isoc, logage_step=logage_step, mh_step=mh_step)
                 sample_syn = synstars(theta, n_stars, isoc, mag_limit=mag_limit,
                                       logage_step=logage_step, mh_step=mh_step,
-                                      beta=beta, gamma=gamma, ftwin=ftwin)
+                                      beta=beta, gamma=gamma, ftwin=ftwin, mbreak=mbreak,
+                                      Mc=Mc, sigma=sigma)
 
                 # if sample_syn is False:
                 #     lnlike_one = 1e10

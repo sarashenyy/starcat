@@ -88,6 +88,9 @@ class SynStars(object):
             mh_step
             sample_obs
             beta
+            gamma
+            ftwin
+            mbreak
         """
         if mag_limit is not None:
             band_max_obs = mag_limit
@@ -103,6 +106,9 @@ class SynStars(object):
         beta = kwargs.get('beta')
         gamma = kwargs.get('gamma')
         ftwin = kwargs.get('ftwin')
+        mbreak = kwargs.get('mbreak')
+        Mc = kwargs.get('Mc')
+        sigma = kwargs.get('sigma')
 
         logage_step = kwargs.get('logage_step')
         mh_step = kwargs.get('mh_step')
@@ -146,7 +152,8 @@ class SynStars(object):
             # !step 3: sample isochrone with specified Binary Method
             #         ==> n_stars [ mass x [_pri, _sec], bands x [_pri, _sec, _syn]
             sample_syn = self.sample_stars(isoc_new, batch_size, fb, alpha=alpha, mag_limit_syn=band_max_syn,
-                                           beta=beta, gamma=gamma, ftwin=ftwin)
+                                           beta=beta, gamma=gamma, ftwin=ftwin, mbreak=mbreak,
+                                           Mc=Mc, sigma=sigma)
 
             # !step 4: add photometry error for synthetic sample
             if len(theta) == 6:
@@ -525,7 +532,7 @@ class SynStars(object):
         return mass_min, mass_max
 
     def sample_stars(self, isoc, n_stars, fb, alpha=None, mag_limit_syn=None,
-                     **kwargs):  # beta, gamma, ftwin
+                     **kwargs):  # beta, gamma, ftwin, mbreak
         """
         Create sample of synthetic stars with specified binary method.
 
@@ -536,6 +543,13 @@ class SynStars(object):
             observed isochrone
         n_stars : int
         fb : float
+        mag_limit_syn : list
+            band_max_syn
+        **kwargs :
+            beta : float
+            gamma : float
+            ftwin : float
+            mbreak : float
 
         Returns
         -------
@@ -545,6 +559,9 @@ class SynStars(object):
         beta = kwargs.get('beta')
         gamma = kwargs.get('gamma')
         ftwin = kwargs.get('ftwin')
+        mbreak = kwargs.get('mbreak')
+        Mc = kwargs.get('Mc')
+        sigma = kwargs.get('sigma')
 
         # define mag limit when not specified
         if mag_limit_syn is None:
@@ -555,7 +572,8 @@ class SynStars(object):
         # create synthetic sample of length n_stars
         sample_syn = pd.DataFrame(np.zeros((n_stars, 1)), columns=['mass_pri'])
         sample_syn['mass_pri'] = self.imf.sample(n_stars=n_stars, mass_min=mass_min,
-                                                 mass_max=mass_max, alpha=alpha)
+                                                 mass_max=mass_max, alpha=alpha, mbreak=mbreak, seed=None,
+                                                 Mc=Mc, sigma=sigma)
         # using specified binary method, see detail in binary.py
         sample_syn = self.binmethod.add_binary(
             fb, n_stars, sample_syn, isoc, self.imf, self.model, self.photsys,
