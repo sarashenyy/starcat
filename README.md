@@ -2,9 +2,12 @@
 
 [![pypi package](https://img.shields.io/pypi/v/starcat.svg)](https://pypi.org/project/starcat/)
 
-This project is still under development, but most of the functions have been completed and tested.<br>
-Please feel free to [contact me 📬](mailto:shenyy@nao.cas.cn) if you encounter any issues or wish to explore the details (sorry in advance for the messy code!).<br>
-A more user-friendly and well-organized version (as well as documentation) will be released soon.
+This package provides tools for open cluster analysis based on Bayesian forward modelling of color–magnitude diagrams.<br>
+
+This project is currently under active development. Most core functions have been implemented and tested.<br>
+Please feel free to [contact me 📬](mailto:shenyy@nao.cas.cn) if you encounter any issues or would like to explore the details of the code.<br>
+More comprehensive documentation and a more user-friendly release will be available soon.
+
 
 ## Home page
 
